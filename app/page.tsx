@@ -1,0 +1,1612 @@
+"use client";
+import { useEffect, useState } from "react";
+import {
+  CalendarDays,
+  ChefHat,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  LockKeyhole,
+  LogOut,
+  Menu,
+  Pencil,
+  Plus,
+  Shirt,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
+import { pasteFetch } from "@/lib/client-api";
+
+type Food = {
+  name: string;
+  why: string;
+  date: string;
+  status: "Da portare" | "Portato";
+  note: string;
+  initials: string;
+  birthdayKey?: string;
+};
+type Person = [
+  name: string,
+  initials: string,
+  role: "Giocatore" | "Allenatore",
+  birthday: string,
+  foodCount: number,
+  kitCount: number,
+];
+type AuthInfo = {
+  authenticated: boolean;
+  personName: string | null;
+  role: "captain" | "viewer" | null;
+  people: string[];
+  captainName: string;
+  captainReady: boolean;
+};
+const people: Person[] = [
+  ["Andrea Bianchi", "AB", "Giocatore", "1998-09-12", 3, 2],
+  ["Luca Bodini", "LB", "Giocatore", "2003-11-21", 2, 1],
+  ["Matteo Ferrari", "MF", "Giocatore", "1999-09-28", 4, 2],
+  ["Davide Rossi", "DR", "Giocatore", "2000-10-06", 1, 1],
+  ["Marco Zanetti", "MZ", "Giocatore", "1997-01-19", 2, 0],
+  ["Coach Nicola", "CN", "Allenatore", "1985-02-03", 2, 0],
+];
+const initial: Food[] = [
+  {
+    name: "Matteo Ferrari",
+    why: "Compleanno",
+    date: "Ven 12 set",
+    status: "Da portare",
+    note: "",
+    initials: "MF",
+  },
+  {
+    name: "Luca Bodini",
+    why: "Ritardo allenamento",
+    date: "Ven 5 set",
+    status: "Portato",
+    note: "2 teglie di pizza",
+    initials: "LB",
+  },
+  {
+    name: "Coach Nicola",
+    why: "Compleanno",
+    date: "Mer 27 ago",
+    status: "Portato",
+    note: "Focacce e bibite",
+    initials: "CN",
+  },
+];
+const Avatar = ({ x, big = false }: { x: string; big?: boolean }) => (
+  <span className={big ? "avatar big" : "avatar"}>{x}</span>
+);
+const dayStart = (date = new Date()) =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
+const birthdayDate = (birthday: string, year: number) => {
+  const [, month, day] = birthday.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+const formatBirthday = (birthday: string) => {
+  const date = birthdayDate(birthday, 2000);
+  return Number.isNaN(date.getTime())
+    ? birthday
+    : date.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
+};
+const initialsFor = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+export default function Home() {
+  const [tab, setTab] = useState("home"),
+    [auth, setAuth] = useState<AuthInfo | null>(null),
+    [captainName, setCaptainName] = useState("Luca Bodini"),
+    [teamName, setTeamName] = useState("Basket Club"),
+    [teamNameModal, setTeamNameModal] = useState(false),
+    [team, setTeam] = useState(people),
+    [foods, setFoods] = useState(initial),
+    [kits, setKits] = useState(
+      [...people.filter((x) => x[2] === "Giocatore")].sort((a, b) =>
+        (a[0] as string)
+          .split(" ")
+          .at(-1)!
+          .localeCompare((b[0] as string).split(" ").at(-1)!),
+      ),
+    ),
+    [modal, setModal] = useState(false),
+    [washModal, setWashModal] = useState(false),
+    [washChoice, setWashChoice] = useState(0),
+    [editIndex, setEditIndex] = useState<number | null>(null),
+    [addPerson, setAddPerson] = useState(false),
+    [birthdayCalendar, setBirthdayCalendar] = useState(false),
+    [mobileMenu, setMobileMenu] = useState(false),
+    [hydrated, setHydrated] = useState(false),
+    [toast, setToast] = useState("");
+  useEffect(() => {
+    if (!mobileMenu) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenu(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.body.classList.add("menu-open");
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.body.classList.remove("menu-open");
+    };
+  }, [mobileMenu]);
+  useEffect(() => {
+    pasteFetch("/api/auth", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        setAuth(data);
+        setCaptainName(data.captainName || "Luca Bodini");
+      })
+      .catch(() =>
+        setAuth({
+          authenticated: false,
+          personName: null,
+          role: null,
+          people: [],
+          captainName: "Luca Bodini",
+          captainReady: false,
+        }),
+      );
+  }, []);
+  useEffect(() => {
+    if (!auth?.authenticated) return;
+    let active = true;
+    const load = async () => {
+      const response = await pasteFetch("/api/state"),
+        payload = await response.json();
+      if (!response.ok) {
+        if (response.status === 401)
+          setAuth((current) =>
+            current
+              ? { ...current, authenticated: false, role: null }
+              : current,
+          );
+        return;
+      }
+      let data = payload.data;
+      if (auth.role === "captain" && payload.revision === 0) {
+        try {
+          const local = localStorage.getItem("terzo-tempo-data");
+          if (local) {
+            data = JSON.parse(local);
+            await pasteFetch("/api/state", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ data, captainName: payload.captainName }),
+            });
+          }
+        } catch {}
+      }
+      if (!active) return;
+      if (Array.isArray(data.team)) setTeam(data.team);
+      if (Array.isArray(data.foods)) setFoods(data.foods);
+      if (Array.isArray(data.kits)) setKits(data.kits);
+      if (typeof data.teamName === "string" && data.teamName.trim())
+        setTeamName(data.teamName.trim());
+      setCaptainName(payload.captainName || auth.captainName);
+      setHydrated(true);
+    };
+    load().catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [auth?.authenticated, auth?.role]);
+  useEffect(() => {
+    if (!hydrated || auth?.role !== "captain") return;
+    localStorage.setItem(
+      "terzo-tempo-data",
+      JSON.stringify({ teamName, team, foods, kits }),
+    );
+    const timer = setTimeout(() => {
+      pasteFetch("/api/state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: { teamName, team, foods, kits },
+          captainName,
+        }),
+      }).catch(() => undefined);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [teamName, team, foods, kits, captainName, hydrated, auth?.role]);
+  const today = dayStart(),
+    upcomingBirthdays = team
+      .map((person) => {
+        let date = birthdayDate(person[3], today.getFullYear());
+        if (date < today)
+          date = birthdayDate(person[3], today.getFullYear() + 1);
+        return {
+          person,
+          date,
+          days: Math.round((date.getTime() - today.getTime()) / 86400000),
+        };
+      })
+      .filter((item) => !Number.isNaN(item.date.getTime()))
+      .sort((a, b) => a.date.getTime() - b.date.getTime()),
+    birthdaysToday = upcomingBirthdays.filter((item) => item.days === 0),
+    nextBirthday = upcomingBirthdays[0],
+    next = kits[0],
+    flash = (t: string) => {
+      setToast(t);
+      setTimeout(() => setToast(""), 2000);
+    },
+    washPlayer = (index: number) => {
+      if (auth?.role !== "captain") return;
+      const washer = kits[index];
+      if (!washer) return;
+      const updated = [...washer] as Person;
+      updated[5] = Number(updated[5]) + 1;
+      const remaining = kits.filter((_, i) => i !== index);
+      setKits([...remaining, updated]);
+      setTeam((current) =>
+        current.map((person) =>
+          person[0] === washer[0]
+            ? ([...person.slice(0, 5), Number(person[5]) + 1] as Person)
+            : person,
+        ),
+      );
+      setWashChoice(0);
+      setWashModal(false);
+      flash(
+        "Divise lavate da " +
+          washer[0] +
+          ". Il prossimo turno è di " +
+          (remaining[0]?.[0] || washer[0]),
+      );
+    };
+  const nav = [
+    ["home", "Panoramica", ClipboardList],
+    ["paste", "Paste", ChefHat],
+    ["divise", "Divise", Shirt],
+    ["squadra", "Squadra", Users],
+  ];
+  const mark = (i: number, delivery: string) => {
+    if (auth?.role !== "captain") return;
+    const delivered = foods[i];
+    if (!delivered || delivered.status === "Portato") return;
+    setFoods((x) =>
+      x.map((f, n) =>
+        n === i ? { ...f, status: "Portato", note: delivery } : f,
+      ),
+    );
+    setTeam((current) =>
+      current.map((person) =>
+        person[0] === delivered.name
+          ? ([
+              ...person.slice(0, 4),
+              Number(person[4]) + 1,
+              person[5],
+            ] as Person)
+          : person,
+      ),
+    );
+    setKits((current) =>
+      current.map((person) =>
+        person[0] === delivered.name
+          ? ([
+              ...person.slice(0, 4),
+              Number(person[4]) + 1,
+              person[5],
+            ] as Person)
+          : person,
+      ),
+    );
+    flash("Spostato nello storico");
+  };
+  if (!auth)
+    return (
+      <div className="auth-loading">
+        <span className="auth-ball">●</span>
+      </div>
+    );
+  if (!auth.authenticated)
+    return (
+      <LoginScreen
+        info={auth}
+        onLogin={(next) => {
+          setHydrated(false);
+          setAuth({ ...auth, ...next, authenticated: true });
+          setCaptainName(next.captainName || auth.captainName);
+        }}
+      />
+    );
+  if (!hydrated)
+    return (
+      <div className="auth-loading">
+        <span className="auth-ball">●</span>
+        <small>Caricamento squadra…</small>
+      </div>
+    );
+  const canEdit = auth.role === "captain";
+  return (
+    <main className="app">
+      <aside className={mobileMenu ? "mobile-open" : ""}>
+        <div className="brand">
+          <b>●</b> PASTE
+        </div>
+        <small>STAGIONE 2026 / 27</small>
+        {nav.map(([id, label, Icon]) => (
+          <button
+            className={tab === id ? "active" : ""}
+            onClick={() => {
+              setTab(id as string);
+              setMobileMenu(false);
+            }}
+            key={id as string}
+          >
+            <Icon size={19} />
+            <span>{label as string}</span>
+          </button>
+        ))}
+        <button
+          className="club"
+          type="button"
+          onClick={() => canEdit && setTeamNameModal(true)}
+          aria-label={canEdit ? "Modifica nome squadra" : teamName}
+        >
+          ●{" "}
+          <div>
+            <strong>{teamName}</strong>
+            <em>{canEdit ? "Modifica nome squadra" : "La tua squadra"}</em>
+          </div>
+          {canEdit && <Pencil className="club-pencil" size={14} />}
+        </button>
+      </aside>
+      {mobileMenu && (
+        <button
+          className="menu-backdrop"
+          aria-label="Chiudi menu"
+          onClick={() => setMobileMenu(false)}
+        />
+      )}
+      <section className="content">
+        <header>
+          <button
+            className="mobile-menu-toggle"
+            aria-label={mobileMenu ? "Chiudi menu" : "Apri menu"}
+            aria-expanded={mobileMenu}
+            onClick={() => setMobileMenu((open) => !open)}
+          >
+            {mobileMenu ? <X size={22} /> : <Menu size={22} />}
+          </button>
+          <div>
+            <p>{teamName.toUpperCase()}</p>
+            <h1>
+              {tab === "home"
+                ? `Ciao, ${canEdit ? "Capitano" : auth.personName?.split(" ")[0]} 👋`
+                : nav.find((x) => x[0] === tab)?.[1]}
+            </h1>
+          </div>
+          <div className="header-actions">
+            {canEdit && <span className="role-chip captain">Capitano</span>}
+            <button
+              className="date date-button"
+              onClick={() => setBirthdayCalendar(true)}
+              aria-label="Apri calendario compleanni"
+            >
+              <CalendarDays size={17} />
+              {today.toLocaleDateString("it-IT", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+            </button>
+            <button
+              className="logout-button"
+              aria-label="Esci"
+              onClick={async () => {
+                await pasteFetch("/api/auth", { method: "DELETE" });
+                setHydrated(false);
+                setAuth({
+                  ...auth,
+                  authenticated: false,
+                  role: null,
+                  personName: null,
+                });
+              }}
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        </header>
+        {toast && (
+          <div className="toast">
+            <Check size={16} />
+            {toast}
+          </div>
+        )}
+        {tab === "home" && (
+          <>
+            <div className="cards page-enter">
+              <Card
+                t="DA PORTARE"
+                v={String(
+                  foods.filter((x) => x.status === "Da portare").length,
+                ).padStart(2, "0")}
+                d="in attesa"
+                c="orange"
+                i={<ChefHat />}
+                go={() => setTab("paste")}
+              />
+              <Card
+                t="TURNO DIVISE"
+                v={(next?.[1] as string) || "—"}
+                d={(next?.[0] as string) || "Nessun giocatore"}
+                c="purple"
+                i={<Shirt />}
+                go={() => setTab("divise")}
+              />
+              <Card
+                t="PROSSIMO COMPLEANNO"
+                v={nextBirthday ? String(nextBirthday.date.getDate()) : "—"}
+                d={
+                  nextBirthday
+                    ? `${nextBirthday.days === 0 ? "oggi" : nextBirthday.date.toLocaleDateString("it-IT", { month: "long" })} · ${nextBirthday.person[0].split(" ")[0]}`
+                    : "Nessuna data inserita"
+                }
+                c={
+                  birthdaysToday.length
+                    ? "blue birthday-card celebrating"
+                    : "blue birthday-card"
+                }
+                i={<CalendarDays />}
+                go={() => setTab("squadra")}
+                celebration={birthdaysToday.length > 0}
+              />
+            </div>
+            <div className="twocol page-enter page-enter-delay-1">
+              <article className="panel">
+                <div className="head">
+                  <div>
+                    <p>ALLENAMENTO · VENERDÌ 12</p>
+                    <h2>Chi porta da mangiare</h2>
+                  </div>
+                  <button onClick={() => setTab("paste")}>→</button>
+                </div>
+                {foods
+                  .filter((f) => f.status === "Da portare")
+                  .map((f) => (
+                    <FoodRow
+                      key={`${f.name}-${foods.indexOf(f)}`}
+                      f={f}
+                      i={foods.indexOf(f)}
+                      mark={mark}
+                      canEdit={canEdit}
+                    />
+                  ))}
+              </article>
+              <article className="wash">
+                <div className="shirt">
+                  <Shirt size={34} />
+                </div>
+                <small>TURNO DIVISE</small>
+                <h2>{next?.[0] || "Nessun giocatore"}</h2>
+                {canEdit && (
+                  <div className="wash-actions">
+                    <button
+                      className="washed-button"
+                      disabled={!next}
+                      onClick={() => washPlayer(0)}
+                    >
+                      <Check size={16} />
+                      Ha lavato
+                    </button>
+                    <button
+                      className="choose-washer"
+                      onClick={() => setWashModal(true)}
+                    >
+                      <Shirt size={16} />
+                      Scegli chi lava
+                    </button>
+                  </div>
+                )}
+              </article>
+            </div>
+            <article className="panel birthdays page-enter page-enter-delay-2">
+              <div className="head">
+                <div>
+                  <p>NON DIMENTICARTI</p>
+                  <h2>Prossimi compleanni</h2>
+                </div>
+              </div>
+              <div>
+                {upcomingBirthdays.slice(0, 3).map(({ person: x, days }) => (
+                  <div className="birthday" key={x[0] as string}>
+                    <b>
+                      {birthdayDate(x[3], 2000).getDate()}
+                      <em>
+                        {birthdayDate(x[3], 2000)
+                          .toLocaleDateString("it-IT", { month: "short" })
+                          .toUpperCase()}
+                      </em>
+                    </b>
+                    <Avatar x={x[1] as string} />
+                    <span>
+                      <strong>{x[0]}</strong>
+                      <small>
+                        {days === 0
+                          ? "Oggi 🎉"
+                          : days === 1
+                            ? "Domani"
+                            : `Tra ${days} giorni`}
+                      </small>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </>
+        )}
+        {tab === "paste" && (
+          <section className="page page-enter">
+            {canEdit && (
+              <div className="top" style={{ justifyContent: "flex-start" }}>
+                <button onClick={() => setModal(true)}>
+                  <Plus size={17} />
+                  Aggiungi
+                </button>
+              </div>
+            )}
+            <section style={{ marginTop: 26 }}>
+              <h3
+                style={{
+                  margin: 0,
+                  background: "#eef1f5",
+                  border: "1px solid #e0e5eb",
+                  borderBottom: 0,
+                  borderRadius: "11px 11px 0 0",
+                  padding: "12px 16px",
+                  fontSize: 12,
+                  letterSpacing: ".1em",
+                  color: "#515b6a",
+                }}
+              >
+                DEBITI
+              </h3>
+              <article
+                className="panel table"
+                style={{ borderRadius: "0 0 14px 14px" }}
+              >
+                {foods
+                  .filter((f) => f.status === "Da portare")
+                  .map((f) => (
+                    <FoodRow
+                      key={`${f.name}-${foods.indexOf(f)}`}
+                      f={f}
+                      i={foods.indexOf(f)}
+                      mark={mark}
+                      canEdit={canEdit}
+                    />
+                  ))}
+              </article>
+            </section>
+            <section style={{ marginTop: 26 }}>
+              <h3
+                style={{
+                  margin: 0,
+                  background: "#eef1f5",
+                  border: "1px solid #e0e5eb",
+                  borderBottom: 0,
+                  borderRadius: "11px 11px 0 0",
+                  padding: "12px 16px",
+                  fontSize: 12,
+                  letterSpacing: ".1em",
+                  color: "#515b6a",
+                }}
+              >
+                PORTATO
+              </h3>
+              <article
+                className="panel table"
+                style={{ borderRadius: "0 0 14px 14px" }}
+              >
+                {foods
+                  .filter((f) => f.status === "Portato")
+                  .map((f) => (
+                    <FoodRow
+                      key={`${f.name}-${foods.indexOf(f)}`}
+                      f={f}
+                      i={foods.indexOf(f)}
+                      mark={mark}
+                      canEdit={canEdit}
+                    />
+                  ))}
+              </article>
+            </section>
+          </section>
+        )}
+        {tab === "divise" && (
+          <section className="page page-enter">
+            <article className="panel kitlist">
+              {kits.map((x, i) => (
+                <div
+                  className={i === 0 ? "kit current" : "kit"}
+                  style={
+                    i === 0
+                      ? {
+                          background: "linear-gradient(110deg,#7657ed,#5435ca)",
+                          color: "#fff",
+                          minHeight: 92,
+                          borderRadius: 14,
+                          margin: "10px -12px",
+                          padding: "0 18px",
+                          boxShadow: "0 10px 24px #6043d22e",
+                        }
+                      : undefined
+                  }
+                  key={x[0] as string}
+                >
+                  <small
+                    style={
+                      i === 0 ? { color: "#fff", fontSize: 16 } : undefined
+                    }
+                  >
+                    {i + 1}
+                  </small>
+                  <Avatar x={x[1] as string} />
+                  <strong
+                    style={
+                      i === 0 ? { color: "#fff", fontSize: 18 } : undefined
+                    }
+                  >
+                    {x[0]}
+                  </strong>
+                  <span style={i === 0 ? { color: "#e9e4ff" } : undefined}>
+                    {i === 0 ? "Tocca a lui" : `Ha lavato ${x[5]} volta/e`}
+                  </span>
+                  {canEdit && (
+                    <button
+                      className="done"
+                      style={
+                        i === 0
+                          ? { background: "#fff", color: "#5435ca" }
+                          : undefined
+                      }
+                      onClick={() => washPlayer(i)}
+                    >
+                      <Check size={15} />
+                      Ha lavato
+                    </button>
+                  )}
+                </div>
+              ))}
+            </article>
+          </section>
+        )}
+        {tab === "squadra" && (
+          <section className="page page-enter">
+            <div className="top" style={{ justifyContent: "flex-start" }}>
+              {canEdit && (
+                <button onClick={() => setAddPerson(true)}>
+                  <Plus size={17} />
+                  Aggiungi persona
+                </button>
+              )}
+              <button
+                className="birthday-calendar-button"
+                onClick={() => setBirthdayCalendar(true)}
+              >
+                <CalendarDays size={17} />
+                Calendario compleanni
+              </button>
+            </div>
+            <div className="roster">
+              {team.map((x, i) => (
+                <article className="person" key={x[0] as string}>
+                  <Avatar x={x[1] as string} big />
+                  <div>
+                    <small
+                      style={
+                        x[2] === "Giocatore"
+                          ? { color: "#15864a", background: "#dcf8e7" }
+                          : { color: "#6250ca", background: "#eeeaff" }
+                      }
+                    >
+                      {x[2]}
+                    </small>
+                    <h3>{x[0]}</h3>
+                    <span>Compleanno · {formatBirthday(x[3])}</span>
+                  </div>
+                  <div className="stat">
+                    <b>{x[4]}</b>
+                    <span>volte ha portato</span>
+                  </div>
+                  <div className="stat">
+                    <b>{x[5] || "—"}</b>
+                    <span>volte divise</span>
+                  </div>
+                  {canEdit && (
+                    <button
+                      className="edit-person"
+                      aria-label={`Modifica ${x[0]}`}
+                      onClick={() => setEditIndex(i)}
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                </article>
+              ))}
+            </div>
+            {canEdit && editIndex !== null && team[editIndex] && (
+              <EditPerson
+                person={team[editIndex]}
+                close={() => setEditIndex(null)}
+                save={(updated) => {
+                  const oldName = team[editIndex][0];
+                  if (oldName === captainName)
+                    setCaptainName(String(updated[0]));
+                  setTeam((x) =>
+                    x.map((p, i) => (i === editIndex ? updated : p)),
+                  );
+                  setKits((x) =>
+                    updated[2] === "Allenatore"
+                      ? x.filter((p) => p[0] !== oldName)
+                      : x.some((p) => p[0] === oldName)
+                        ? x.map((p) => (p[0] === oldName ? updated : p))
+                        : [...x, updated],
+                  );
+                  setFoods((x) =>
+                    x.map((food) =>
+                      food.name === oldName
+                        ? {
+                            ...food,
+                            name: updated[0] as string,
+                            initials: updated[1] as string,
+                            birthdayKey: food.birthdayKey?.replace(
+                              String(oldName),
+                              String(updated[0]),
+                            ),
+                          }
+                        : food,
+                    ),
+                  );
+                  setEditIndex(null);
+                  flash("Persona aggiornata");
+                }}
+                remove={
+                  team[editIndex][0] === captainName
+                    ? undefined
+                    : () => {
+                        const removed = team[editIndex];
+                        setTeam((x) => x.filter((_, i) => i !== editIndex));
+                        setKits((x) => x.filter((p) => p[0] !== removed[0]));
+                        setFoods((x) =>
+                          x.filter((food) => food.name !== removed[0]),
+                        );
+                        setEditIndex(null);
+                        flash(removed[0] + " eliminato");
+                      }
+                }
+              />
+            )}
+            {canEdit && addPerson && (
+              <EditPerson
+                person={["", "", "Giocatore", "", 0, 0]}
+                mode="new"
+                close={() => setAddPerson(false)}
+                save={(created) => {
+                  setTeam((current) => [...current, created]);
+                  if (created[2] === "Giocatore")
+                    setKits((current) => [...current, created]);
+                  setAddPerson(false);
+                  flash("Persona aggiunta");
+                }}
+              />
+            )}
+          </section>
+        )}
+        {birthdayCalendar && (
+          <BirthdayCalendar
+            team={team}
+            close={() => setBirthdayCalendar(false)}
+          />
+        )}
+        {canEdit && teamNameModal && (
+          <TeamNameModal
+            value={teamName}
+            close={() => setTeamNameModal(false)}
+            save={(name) => {
+              setTeamName(name);
+              setTeamNameModal(false);
+              flash("Nome squadra aggiornato");
+            }}
+          />
+        )}
+        {canEdit && modal && (
+          <NewFood
+            close={() => setModal(false)}
+            add={(f) => {
+              setFoods((x) => [f, ...x]);
+              setModal(false);
+              flash("Nuovo debito aggiunto");
+            }}
+          />
+        )}
+        {canEdit && washModal && (
+          <div className="back" onClick={() => setWashModal(false)}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#fff",
+                width: "min(460px,calc(100% - 30px))",
+                borderRadius: 20,
+                padding: 26,
+                boxShadow: "0 24px 80px #0005",
+                position: "relative",
+              }}
+            >
+              <button
+                className="close"
+                onClick={() => setWashModal(false)}
+                style={{
+                  position: "absolute",
+                  right: 16,
+                  top: 16,
+                  border: 0,
+                  background: "#eef1f5",
+                  borderRadius: 9,
+                  width: 36,
+                  height: 36,
+                  display: "grid",
+                  placeItems: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={19} />
+              </button>
+              <p
+                style={{
+                  margin: "0 0 7px",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: ".12em",
+                  color: "#8d96a5",
+                }}
+              >
+                ASSEGNA LE DIVISE
+              </p>
+              <h2 style={{ margin: "0 45px 7px 0" }}>Chi le lava?</h2>
+              <span
+                style={{
+                  display: "block",
+                  color: "#697386",
+                  fontSize: 14,
+                  marginBottom: 18,
+                }}
+              >
+                Seleziona un giocatore e conferma.
+              </span>
+              <div
+                style={{
+                  maxHeight: 310,
+                  overflowY: "auto",
+                  display: "grid",
+                  gap: 8,
+                  paddingRight: 5,
+                }}
+              >
+                {kits.map((x, i) => (
+                  <button
+                    key={x[0] as string}
+                    onClick={() => setWashChoice(i)}
+                    style={{
+                      border:
+                        washChoice === i
+                          ? "2px solid #6948e8"
+                          : "1px solid #e1e5ec",
+                      background: washChoice === i ? "#f1edff" : "#fff",
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 11,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <Avatar x={x[1] as string} />
+                    <strong style={{ flex: 1, color: "#172033" }}>
+                      {x[0]}
+                    </strong>
+                    <span
+                      style={{
+                        width: 19,
+                        height: 19,
+                        borderRadius: "50%",
+                        border:
+                          washChoice === i
+                            ? "6px solid #6948e8"
+                            : "2px solid #bdc4cf",
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 9,
+                  marginTop: 20,
+                }}
+              >
+                <button
+                  onClick={() => setWashModal(false)}
+                  style={{
+                    border: 0,
+                    background: "#eef1f5",
+                    borderRadius: 9,
+                    padding: "11px 15px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={() => washPlayer(washChoice)}
+                  style={{
+                    border: 0,
+                    background: "#6948e8",
+                    color: "#fff",
+                    borderRadius: 9,
+                    padding: "11px 16px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Conferma
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+function LoginScreen({
+  info,
+  onLogin,
+}: {
+  info: AuthInfo;
+  onLogin: (next: AuthInfo) => void;
+}) {
+  const [teamCode, setTeamCode] = useState(""),
+    [codeVerified, setCodeVerified] = useState(false),
+    [availablePeople, setAvailablePeople] = useState<string[]>([]),
+    [loginCaptainName, setLoginCaptainName] = useState(info.captainName),
+    [captainReady, setCaptainReady] = useState(info.captainReady),
+    [personName, setPersonName] = useState(""),
+    [password, setPassword] = useState(""),
+    [passwordConfirm, setPasswordConfirm] = useState(""),
+    [loading, setLoading] = useState(false),
+    [error, setError] = useState("");
+  const isCaptain = personName === loginCaptainName;
+  return (
+    <main className="login-page">
+      <section className="login-brand">
+        <div className="login-logo">
+          <b>●</b> PASTE
+        </div>
+        <div>
+          <h1>Gestionale paste e divise</h1>
+        </div>
+      </section>
+      <form
+        className="login-card"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setError("");
+          if (isCaptain && !captainReady && password !== passwordConfirm) {
+            setError("Le password sono diverse: riscrivile uguali");
+            return;
+          }
+          setLoading(true);
+          try {
+            if (!codeVerified) {
+              const response = await pasteFetch("/api/auth", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "team-check", teamCode }),
+              });
+              const data = await response.json();
+              if (!response.ok)
+                throw new Error(data.error || "Codice squadra non corretto");
+              setAvailablePeople(data.people || []);
+              setLoginCaptainName(data.captainName || "Luca Bodini");
+              setCaptainReady(Boolean(data.captainReady));
+              setCodeVerified(true);
+              return;
+            }
+            const response = await pasteFetch("/api/auth", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                teamCode,
+                personName,
+                password,
+                passwordConfirm,
+              }),
+            });
+            const data = await response.json();
+            if (!response.ok)
+              throw new Error(data.error || "Accesso non riuscito");
+            onLogin({ ...info, ...data });
+          } catch (reason) {
+            setError(
+              reason instanceof Error ? reason.message : "Accesso non riuscito",
+            );
+          } finally {
+            setLoading(false);
+          }
+        }}
+      >
+        <div className="login-lock">
+          <LockKeyhole size={24} />
+        </div>
+        <p>ACCESSO SQUADRA</p>
+        <h2>Bentornato</h2>
+        <span className="login-copy">
+          {codeVerified
+            ? "Codice corretto. Ora scegli il tuo nome."
+            : "Inserisci il codice della squadra per continuare."}
+        </span>
+        <label>
+          Codice squadra
+          <input
+            autoFocus
+            required
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={teamCode}
+            onChange={(event) => {
+              setTeamCode(event.target.value.replace(/\D/g, ""));
+              setCodeVerified(false);
+              setAvailablePeople([]);
+              setPersonName("");
+              setPassword("");
+              setPasswordConfirm("");
+              setError("");
+            }}
+            placeholder="Inserisci il codice"
+          />
+        </label>
+        {codeVerified && (
+          <label className="login-reveal">
+            Chi sei?
+            <select
+              required
+              autoFocus
+              value={personName}
+              onChange={(event) => {
+                setPersonName(event.target.value);
+                setPassword("");
+                setPasswordConfirm("");
+                setError("");
+              }}
+            >
+              <option value="">Seleziona il tuo nome</option>
+              {availablePeople.map((name) => (
+                <option key={name}>{name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        {isCaptain && (
+          <div className="captain-fields">
+            <div className="captain-notice">
+              <LockKeyhole size={17} />
+              <span>
+                {captainReady
+                  ? "Accesso riservato al capitano"
+                  : "Crea la password del capitano"}
+              </span>
+            </div>
+            {!captainReady && (
+              <p className="captain-setup-copy">
+                È il primo accesso: scegli una nuova password e scrivila uguale
+                in entrambi i campi. Verrà salvata solo dopo la conferma.
+              </p>
+            )}
+            <label>
+              {captainReady
+                ? "Password capitano"
+                : "Nuova password capitano"}
+              <input
+                required
+                type="password"
+                autoComplete={
+                  captainReady ? "current-password" : "new-password"
+                }
+                minLength={6}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Almeno 6 caratteri"
+              />
+            </label>
+            {!captainReady && (
+              <label>
+                Conferma password
+                <input
+                  required
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={6}
+                  value={passwordConfirm}
+                  onChange={(event) => {
+                    setPasswordConfirm(event.target.value);
+                    setError("");
+                  }}
+                  placeholder="Ripeti la password"
+                />
+              </label>
+            )}
+          </div>
+        )}
+        {error && <div className="login-error">{error}</div>}
+        <button className="login-submit" disabled={loading}>
+          {loading
+            ? "Accesso…"
+            : !codeVerified
+              ? "Verifica codice"
+              : isCaptain && !captainReady
+              ? "Crea password e accedi"
+              : "Entra nella squadra"}
+        </button>
+        <small>La sessione rimarrà attiva su questo dispositivo.</small>
+      </form>
+    </main>
+  );
+}
+function TeamNameModal({
+  value,
+  close,
+  save,
+}: {
+  value: string;
+  close: () => void;
+  save: (name: string) => void;
+}) {
+  const [name, setName] = useState(value);
+  return (
+    <div className="back" onClick={close}>
+      <form
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const cleaned = name.trim();
+          if (cleaned) save(cleaned);
+        }}
+      >
+        <button type="button" className="close" onClick={close}>
+          <X />
+        </button>
+        <p>NOME SQUADRA</p>
+        <h2>Come si chiama la squadra?</h2>
+        <label>
+          Nome
+          <input
+            autoFocus
+            required
+            maxLength={40}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Es. Basket Villafranca"
+          />
+        </label>
+        <button>Salva nome</button>
+      </form>
+    </div>
+  );
+}
+function Card(p: {
+  t: string;
+  v: string;
+  d: string;
+  c: string;
+  i: React.ReactNode;
+  go?: () => void;
+  celebration?: boolean;
+}) {
+  return (
+    <article
+      onClick={p.go}
+      onKeyDown={(event) => {
+        if ((event.key === "Enter" || event.key === " ") && p.go) p.go();
+      }}
+      className={"card " + p.c}
+      style={{ cursor: "pointer" }}
+      role="button"
+      tabIndex={0}
+    >
+      {p.celebration && (
+        <div className="confetti" aria-hidden="true">
+          {Array.from({ length: 18 }, (_, index) => (
+            <i
+              key={index}
+              style={{
+                left: `${4 + index * 5.4}%`,
+                animationDelay: `${index * -0.13}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+      <div>
+        <p>{p.t}</p>
+        <strong>{p.v}</strong>
+        <span>{p.d}</span>
+      </div>
+      <b>{p.i}</b>
+    </article>
+  );
+}
+function FoodRow({
+  f,
+  i,
+  mark,
+  canEdit,
+}: {
+  f: Food;
+  i: number;
+  mark: (i: number, delivery: string) => void;
+  canEdit: boolean;
+}) {
+  const due = f.status === "Da portare",
+    open = () => {
+      const layer = document.createElement("div");
+      layer.style.cssText =
+        "position:fixed;inset:0;background:#10182899;z-index:99;display:grid;place-items:center;padding:20px";
+      const box = document.createElement("div");
+      box.style.cssText =
+        "width:min(420px,100%);background:#fff;border-radius:20px;padding:28px;box-shadow:0 25px 80px #0005;font-family:Arial";
+      box.innerHTML =
+        '<div style="font-size:11px;font-weight:800;letter-spacing:.12em;color:#8b95a5;margin-bottom:8px">CONSEGNA CONFERMATA</div><h2 style="margin:0 0 8px;color:#172033">Cosa ha portato?</h2><p style="margin:0 0 18px;color:#6b7482;font-size:14px">La nota verrà salvata nello storico di ' +
+        f.name +
+        '.</p><input placeholder="Es. 2 teglie di pizza e bibite" style="width:100%;border:1px solid #d9dfe8;border-radius:10px;padding:12px;font-size:15px;box-sizing:border-box"><div style="display:flex;justify-content:flex-end;gap:9px;margin-top:18px"><button data-cancel style="border:0;background:#eef1f5;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer">Annulla</button><button data-save style="border:0;background:#ff6b35;color:#fff;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer">Salva e sposta</button></div>';
+      layer.append(box);
+      document.body.append(layer);
+      const input = box.querySelector("input")!;
+      input.focus();
+      box
+        .querySelector("[data-cancel]")!
+        .addEventListener("click", () => layer.remove());
+      box.querySelector("[data-save]")!.addEventListener("click", () => {
+        mark(i, input.value.trim() || "Nessuna nota");
+        layer.remove();
+      });
+    };
+  return (
+    <div
+      className="food"
+      style={{
+        background: "#fff",
+        borderRadius: 10,
+        padding: "14px 12px",
+        margin: "8px 0",
+        border: "1px solid #e0e5eb",
+      }}
+    >
+      <Avatar x={f.initials} />
+      <div>
+        <strong>{f.name}</strong>
+        <span>
+          {f.why} · {f.date}
+        </span>
+        {f.note && <em>{f.note}</em>}
+      </div>
+      {due && canEdit ? (
+        <button className="done" onClick={open}>
+          <Check size={16} />
+          Conferma consegna
+        </button>
+      ) : due ? (
+        <b className="pending">Da portare</b>
+      ) : (
+        <b className="ok">Ha portato</b>
+      )}
+    </div>
+  );
+}
+function NewFood({
+  close,
+  add,
+}: {
+  close: () => void;
+  add: (x: Food) => void;
+}) {
+  const [n, setN] = useState(""),
+    [r, setR] = useState("");
+  return (
+    <div className="back">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (n)
+            add({
+              name: n,
+              why: r || "Evento speciale",
+              date: new Date().toLocaleDateString("it-IT", {
+                day: "2-digit",
+                month: "short",
+              }),
+              status: "Da portare",
+              note: "",
+              initials: initialsFor(n),
+            });
+        }}
+      >
+        <button type="button" className="close" onClick={close}>
+          <X />
+        </button>
+        <p>NUOVO DEBITO</p>
+        <h2>Chi deve portare?</h2>
+        <label>
+          Nome
+          <input
+            autoFocus
+            value={n}
+            onChange={(e) => setN(e.target.value)}
+            placeholder="Es. Marco Rossi"
+          />
+        </label>
+        <label>
+          Motivo
+          <input
+            value={r}
+            onChange={(e) => setR(e.target.value)}
+            placeholder="Es. compleanno, ritardo..."
+          />
+        </label>
+        <button>Aggiungi alla lista</button>
+      </form>
+    </div>
+  );
+}
+function EditPerson({
+  person,
+  close,
+  save,
+  remove,
+  mode = "edit",
+}: {
+  person: Person;
+  close: () => void;
+  save: (x: Person) => void;
+  remove?: () => void;
+  mode?: "edit" | "new";
+}) {
+  const parts = (person[0] as string).split(" "),
+    [name, setName] = useState(parts.slice(0, -1).join(" ") || parts[0]),
+    [surname, setSurname] = useState(parts.length > 1 ? parts.at(-1)! : ""),
+    [birthday, setBirthday] = useState(person[3] as string),
+    [role, setRole] = useState<Person[2]>(person[2]),
+    [confirmDelete, setConfirmDelete] = useState(false);
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const full = [name.trim(), surname.trim()].filter(Boolean).join(" ");
+    if (full && birthday)
+      save([full, initialsFor(full), role, birthday, person[4], person[5]]);
+  };
+  return (
+    <div className="back" onClick={close}>
+      <form
+        className="edit-form"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+      >
+        <button type="button" className="close" onClick={close}>
+          <X />
+        </button>
+        <p>{mode === "new" ? "NUOVA PERSONA" : "MODIFICA PERSONA"}</p>
+        <h2>
+          {mode === "new" ? "Aggiungi alla squadra" : "Dati della squadra"}
+        </h2>
+        <div className="edit-grid">
+          <label>
+            Nome
+            <input
+              autoFocus
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nome"
+            />
+          </label>
+          <label>
+            Cognome
+            <input
+              value={surname}
+              required
+              onChange={(e) => setSurname(e.target.value)}
+              placeholder="Cognome"
+            />
+          </label>
+        </div>
+        <label>
+          Data di nascita
+          <input
+            type="date"
+            required
+            value={birthday}
+            onChange={(e) => setBirthday(e.target.value)}
+          />
+        </label>
+        <label>
+          Ruolo
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as Person[2])}
+          >
+            <option>Giocatore</option>
+            <option>Allenatore</option>
+          </select>
+        </label>
+        <div className="edit-actions">
+          {remove && confirmDelete ? (
+            <div className="delete-confirm">
+              <span>Eliminare definitivamente?</span>
+              <button type="button" onClick={() => setConfirmDelete(false)}>
+                No
+              </button>
+              <button type="button" onClick={remove}>
+                Sì, elimina
+              </button>
+            </div>
+          ) : remove ? (
+            <button
+              type="button"
+              className="delete-person"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 size={16} />
+              Elimina
+            </button>
+          ) : (
+            <span />
+          )}
+          <button className="save-person">
+            <Check size={16} />
+            {mode === "new" ? "Aggiungi persona" : "Salva modifiche"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+function BirthdayCalendar({
+  team,
+  close,
+}: {
+  team: Person[];
+  close: () => void;
+}) {
+  const now = new Date(),
+    [month, setMonth] = useState(now.getMonth()),
+    [year, setYear] = useState(now.getFullYear()),
+    months = [
+      "Gennaio",
+      "Febbraio",
+      "Marzo",
+      "Aprile",
+      "Maggio",
+      "Giugno",
+      "Luglio",
+      "Agosto",
+      "Settembre",
+      "Ottobre",
+      "Novembre",
+      "Dicembre",
+    ],
+    weekdays = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"],
+    years = Array.from(
+      { length: 41 },
+      (_, index) => now.getFullYear() - 20 + index,
+    ),
+    daysInMonth = new Date(year, month + 1, 0).getDate(),
+    leadingDays = (new Date(year, month, 1).getDay() + 6) % 7,
+    birthdays = team.reduce<Record<number, Person[]>>((days, person) => {
+      const [, birthMonth, birthDay] = person[3].split("-").map(Number);
+      if (birthMonth === month + 1) (days[birthDay] ||= []).push(person);
+      return days;
+    }, {}),
+    changeMonth = (direction: number) => {
+      const next = new Date(year, month + direction, 1);
+      setMonth(next.getMonth());
+      setYear(next.getFullYear());
+    };
+  return (
+    <div className="back calendar-back" onClick={close}>
+      <section
+        className="birthday-calendar"
+        onClick={(event) => event.stopPropagation()}
+        aria-label="Calendario compleanni"
+      >
+        <button
+          className="close"
+          onClick={close}
+          aria-label="Chiudi calendario"
+        >
+          <X size={19} />
+        </button>
+        <div className="calendar-heading">
+          <div>
+            <p>COMPLEANNI DELLA SQUADRA</p>
+            <h2>Calendario compleanni</h2>
+          </div>
+          <div className="calendar-controls">
+            <button
+              onClick={() => changeMonth(-1)}
+              aria-label="Mese precedente"
+            >
+              <ChevronLeft size={19} />
+            </button>
+            <select
+              aria-label="Seleziona mese"
+              value={month}
+              onChange={(event) => setMonth(Number(event.target.value))}
+            >
+              {months.map((name, index) => (
+                <option key={name} value={index}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Seleziona anno"
+              value={year}
+              onChange={(event) => setYear(Number(event.target.value))}
+            >
+              {years.map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+            <button onClick={() => changeMonth(1)} aria-label="Mese successivo">
+              <ChevronRight size={19} />
+            </button>
+          </div>
+        </div>
+        <div className="calendar-grid calendar-weekdays">
+          {weekdays.map((day) => (
+            <b key={day}>{day}</b>
+          ))}
+        </div>
+        <div className="calendar-grid calendar-days">
+          {Array.from({ length: leadingDays }, (_, index) => (
+            <span className="calendar-empty" key={`empty-${index}`} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, index) => {
+            const day = index + 1,
+              isToday =
+                day === now.getDate() &&
+                month === now.getMonth() &&
+                year === now.getFullYear();
+            return (
+              <div
+                className={`calendar-day${isToday ? " today" : ""}${birthdays[day] ? " has-birthday" : ""}`}
+                key={day}
+              >
+                <strong>{day}</strong>
+                {birthdays[day]?.map((person) => (
+                  <span key={person[0]} title={person[0]}>
+                    🎂 {person[0].split(" ")[0]}
+                  </span>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
