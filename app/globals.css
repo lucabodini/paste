@@ -1366,6 +1366,11 @@ h3 {
   }
 }
 @media (max-width: 530px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
   .login-page {
     display: block;
     padding: 18px 0 30px;
@@ -1375,13 +1380,17 @@ h3 {
     min-height: 210px;
     padding: 18px 24px;
     background: transparent;
+    isolation: auto;
   }
   .login-brand > div:last-child {
     margin-top: 34px;
   }
   .login-brand h1 {
     margin: 0 0 12px;
+    color: #fff;
     font-size: 36px;
+    mix-blend-mode: difference;
+    text-shadow: 0 1px 2px #0006;
   }
   .login-brand span,
   .login-brand p {
