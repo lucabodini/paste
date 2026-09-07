@@ -1056,21 +1056,27 @@ h3 {
   border-radius: 11px;
   background: #fff;
   color: #4b5565;
+  line-height: 0;
   box-shadow: 0 3px 10px #17203312;
   cursor: pointer;
   transition:
-    transform 0.2s ease,
     color 0.2s ease,
     background-color 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
+.back .close svg {
+  display: block;
+  transition: transform 0.2s ease;
+}
 .back .close:hover {
-  transform: rotate(90deg);
   border-color: #ffb7af;
   background: #fff3f2;
   color: #c43d34;
   box-shadow: 0 5px 14px #c43d3424;
+}
+.back .close:hover svg {
+  transform: rotate(90deg);
 }
 .back .close:focus-visible {
   outline: 3px solid #dcd3ff;
