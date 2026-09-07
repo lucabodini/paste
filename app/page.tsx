@@ -494,10 +494,17 @@ export default function Home() {
               />
               <Card
                 t="PROSSIMO COMPLEANNO"
-                v={nextBirthday ? String(nextBirthday.date.getDate()) : "—"}
+                v={
+                  nextBirthday
+                    ? nextBirthday.date.toLocaleDateString("it-IT", {
+                        day: "numeric",
+                        month: "long",
+                      })
+                    : "—"
+                }
                 d={
                   nextBirthday
-                    ? `${nextBirthday.days === 0 ? "oggi" : nextBirthday.date.toLocaleDateString("it-IT", { month: "long" })} · ${displayName(nextBirthday.person).split(" ")[0]}`
+                    ? displayName(nextBirthday.person)
                     : "Nessuna data inserita"
                 }
                 c={

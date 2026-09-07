@@ -507,6 +507,15 @@ h3 {
 .blue {
   background: linear-gradient(135deg, #278be8, #115fc2);
 }
+.birthday-card strong {
+  font-size: 22px;
+  letter-spacing: -0.025em;
+  text-transform: capitalize;
+}
+.birthday-card span {
+  margin-top: 8px;
+  font-weight: 700;
+}
 .birthday-card.celebrating {
   background: linear-gradient(135deg, #278be8, #5745de, #115fc2);
   background-size: 180% 180%;
