@@ -107,7 +107,9 @@ const displayName = (person: Person) => person[6]?.trim() || person[0];
 const sortBySurname = (players: Person[]) =>
   [...players].sort((a, b) => {
     const surname = (person: Person) => person[0].trim().split(/\s+/).at(-1)!;
-    return surname.localeCompare(surname(b), "it", { sensitivity: "base" });
+    return surname(a).localeCompare(surname(b), "it", {
+      sensitivity: "base",
+    });
   });
 export default function Home() {
   const [tab, setTab] = useState("home"),
