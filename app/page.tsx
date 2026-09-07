@@ -130,6 +130,7 @@ export default function Home() {
     [washModal, setWashModal] = useState(false),
     [washChoice, setWashChoice] = useState(0),
     [editIndex, setEditIndex] = useState<number | null>(null),
+    [editFoodIndex, setEditFoodIndex] = useState<number | null>(null),
     [addPerson, setAddPerson] = useState(false),
     [birthdayCalendar, setBirthdayCalendar] = useState(false),
     [mobileMenu, setMobileMenu] = useState(false),
@@ -278,6 +279,20 @@ export default function Home() {
     ["divise", "Divise", Shirt],
     ["squadra", "Squadra", Users],
   ];
+  const removeFood = (index: number) => {
+    if (auth?.role !== "captain") return;
+    setFoods((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    flash("Voce eliminata");
+  };
+  const updateFood = (index: number, updated: Food) => {
+    if (auth?.role !== "captain") return;
+    setFoods((current) =>
+      current.map((food, itemIndex) =>
+        itemIndex === index ? updated : food,
+      ),
+    );
+    flash("Voce aggiornata");
+  };
   const mark = (i: number, delivery: string) => {
     if (auth?.role !== "captain") return;
     const delivered = foods[i];
@@ -492,6 +507,7 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
+                      edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
               </article>
@@ -596,6 +612,7 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
+                      edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
               </article>
@@ -629,6 +646,7 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
+                      edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
               </article>
@@ -840,6 +858,20 @@ export default function Home() {
               setFoods((x) => [f, ...x]);
               setModal(false);
               flash("Nuovo debito aggiunto");
+            }}
+          />
+        )}
+        {canEdit && editFoodIndex !== null && foods[editFoodIndex] && (
+          <EditFood
+            food={foods[editFoodIndex]}
+            close={() => setEditFoodIndex(null)}
+            save={(updated) => {
+              updateFood(editFoodIndex, updated);
+              setEditFoodIndex(null);
+            }}
+            remove={() => {
+              removeFood(editFoodIndex);
+              setEditFoodIndex(null);
             }}
           />
         )}
@@ -1268,11 +1300,13 @@ function FoodRow({
   i,
   mark,
   canEdit,
+  edit,
 }: {
   f: Food;
   i: number;
   mark: (i: number, delivery: string) => void;
   canEdit: boolean;
+  edit: () => void;
 }) {
   const due = f.status === "Da portare",
     open = () => {
@@ -1326,6 +1360,15 @@ function FoodRow({
         <b className="pending">Da portare</b>
       ) : (
         <b className="ok">Ha portato</b>
+      )}
+      {canEdit && (
+        <button
+          className="edit-person"
+          aria-label={`Modifica voce di ${f.displayName || f.name}`}
+          onClick={edit}
+        >
+          <Pencil size={16} />
+        </button>
       )}
     </div>
   );
@@ -1381,6 +1424,121 @@ function NewFood({
           />
         </label>
         <button>Aggiungi alla lista</button>
+      </form>
+    </div>
+  );
+}
+function EditFood({
+  food,
+  close,
+  save,
+  remove,
+}: {
+  food: Food;
+  close: () => void;
+  save: (food: Food) => void;
+  remove: () => void;
+}) {
+  const [name, setName] = useState(food.name),
+    [why, setWhy] = useState(food.why),
+    [date, setDate] = useState(food.date),
+    [note, setNote] = useState(food.note),
+    [status, setStatus] = useState<Food["status"]>(food.status),
+    [confirmDelete, setConfirmDelete] = useState(false);
+  return (
+    <div className="back" onClick={close}>
+      <form
+        className="edit-form"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!name.trim()) return;
+          save({
+            ...food,
+            name: name.trim(),
+            displayName:
+              name.trim() === food.name ? food.displayName : name.trim(),
+            initials: initialsFor(name.trim()),
+            why: why.trim() || "Evento speciale",
+            date: date.trim(),
+            note: note.trim(),
+            status,
+          });
+        }}
+      >
+        <button type="button" className="close" onClick={close}>
+          <X />
+        </button>
+        <p>MODIFICA VOCE</p>
+        <h2>Dettagli di cosa ha portato</h2>
+        <label>
+          Nome
+          <input
+            autoFocus
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <label>
+          Motivo
+          <input
+            value={why}
+            onChange={(event) => setWhy(event.target.value)}
+          />
+        </label>
+        <label>
+          Data
+          <input
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            placeholder="Es. Ven 12 set"
+          />
+        </label>
+        <label>
+          Cosa ha portato
+          <input
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Es. 2 teglie di pizza"
+          />
+        </label>
+        <label>
+          Stato
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as Food["status"])}
+          >
+            <option>Da portare</option>
+            <option>Portato</option>
+          </select>
+        </label>
+        <div className="edit-actions">
+          {confirmDelete ? (
+            <div className="delete-confirm">
+              <span>Eliminare definitivamente?</span>
+              <button type="button" onClick={() => setConfirmDelete(false)}>
+                No
+              </button>
+              <button type="button" onClick={remove}>
+                Sì, elimina
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="delete-person"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 size={16} />
+              Elimina
+            </button>
+          )}
+          <button className="save-person">
+            <Check size={16} />
+            Salva modifiche
+          </button>
+        </div>
       </form>
     </div>
   );
