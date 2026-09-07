@@ -107,9 +107,13 @@ const displayName = (person: Person) => person[6]?.trim() || person[0];
 const sortBySurname = (players: Person[]) =>
   [...players].sort((a, b) => {
     const surname = (person: Person) => person[0].trim().split(/\s+/).at(-1)!;
-    return surname(a).localeCompare(surname(b), "it", {
+    const surnameOrder = surname(a).localeCompare(surname(b), "it", {
       sensitivity: "base",
     });
+    return (
+      surnameOrder ||
+      a[0].localeCompare(b[0], "it", { sensitivity: "base" })
+    );
   });
 export default function Home() {
   const [tab, setTab] = useState("home"),
@@ -194,7 +198,7 @@ export default function Home() {
       if (!active) return;
       if (Array.isArray(data.team)) setTeam(data.team);
       if (Array.isArray(data.foods)) setFoods(data.foods);
-      if (Array.isArray(data.kits)) setKits(sortBySurname(data.kits));
+      if (Array.isArray(data.kits)) setKits(data.kits);
       if (typeof data.teamName === "string" && data.teamName.trim())
         setTeamName(data.teamName.trim());
       setCaptainName(payload.captainName || auth.captainName);
@@ -251,7 +255,7 @@ export default function Home() {
       const updated = [...washer] as Person;
       updated[5] = Number(updated[5]) + 1;
       const remaining = kits.filter((_, i) => i !== index);
-      setKits(sortBySurname([...remaining, updated]));
+      setKits([...remaining, updated]);
       setTeam((current) =>
         current.map((person) =>
           person[0] === washer[0]
@@ -755,13 +759,11 @@ export default function Home() {
                     x.map((p, i) => (i === editIndex ? updated : p)),
                   );
                   setKits((x) =>
-                    sortBySurname(
-                      updated[2] === "Allenatore"
-                        ? x.filter((p) => p[0] !== oldName)
-                        : x.some((p) => p[0] === oldName)
-                          ? x.map((p) => (p[0] === oldName ? updated : p))
-                          : [...x, updated],
-                    ),
+                    updated[2] === "Allenatore"
+                      ? x.filter((p) => p[0] !== oldName)
+                      : x.some((p) => p[0] === oldName)
+                        ? x.map((p) => (p[0] === oldName ? updated : p))
+                        : [...x, updated],
                   );
                   setFoods((x) =>
                     x.map((food) =>
@@ -806,7 +808,7 @@ export default function Home() {
                 save={(created) => {
                   setTeam((current) => [...current, created]);
                   if (created[2] === "Giocatore")
-                    setKits((current) => sortBySurname([...current, created]));
+                    setKits((current) => [...current, created]);
                   setAddPerson(false);
                   flash("Persona aggiunta");
                 }}
