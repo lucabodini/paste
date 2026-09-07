@@ -528,7 +528,6 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
-                      edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
               </article>
@@ -633,7 +632,6 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
-                      edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
               </article>
@@ -667,7 +665,6 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
-                      edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
               </article>
@@ -766,13 +763,15 @@ export default function Home() {
                       <h3>{displayName(x)}</h3>
                     <span>Compleanno · {formatBirthday(x[3])}</span>
                   </div>
-                  <div className="stat">
-                    <b>{x[4]}</b>
-                    <span>volte ha portato</span>
-                  </div>
-                  <div className="stat">
-                    <b>{x[5] || "—"}</b>
-                    <span>volte divise</span>
+                  <div className="person-stats">
+                    <div className="stat">
+                      <b>{Number(x[4]) || 0}</b>
+                      <span>Paste portate</span>
+                    </div>
+                    <div className="stat">
+                      <b>{Number(x[5]) || 0}</b>
+                      <span>Divise lavate</span>
+                    </div>
                   </div>
                   {canEdit && (
                     <button
@@ -1322,13 +1321,11 @@ function FoodRow({
   i,
   mark,
   canEdit,
-  edit,
 }: {
   f: Food;
   i: number;
   mark: (i: number, delivery: string) => void;
   canEdit: boolean;
-  edit: () => void;
 }) {
   const due = f.status === "Da portare",
     open = () => {
@@ -1382,15 +1379,6 @@ function FoodRow({
         <b className="pending">Da portare</b>
       ) : (
         <b className="ok">Ha portato</b>
-      )}
-      {canEdit && (
-        <button
-          className="edit-person"
-          aria-label={`Modifica voce di ${f.displayName || f.name}`}
-          onClick={edit}
-        >
-          <Pencil size={16} />
-        </button>
       )}
     </div>
   );
@@ -1849,6 +1837,12 @@ function BirthdayCalendar({
               </div>
             );
           })}
+          {Array.from(
+            { length: 42 - leadingDays - daysInMonth },
+            (_, index) => (
+              <span className="calendar-empty" key={`trailing-empty-${index}`} />
+            ),
+          )}
         </div>
       </section>
     </div>
