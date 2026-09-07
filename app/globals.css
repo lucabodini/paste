@@ -17,6 +17,9 @@ body {
 body.menu-open {
   overflow: hidden;
 }
+body.modal-open {
+  overflow: hidden;
+}
 .auth-loading {
   min-height: 100vh;
   display: grid;
@@ -1231,11 +1234,9 @@ h3 {
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 @keyframes backdrop-in {

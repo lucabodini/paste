@@ -149,6 +149,27 @@ export default function Home() {
     };
   }, [mobileMenu]);
   useEffect(() => {
+    const hasOpenModal =
+      modal ||
+      washModal ||
+      editIndex !== null ||
+      editFoodIndex !== null ||
+      addPerson ||
+      birthdayCalendar ||
+      teamNameModal;
+    if (!hasOpenModal) return;
+    document.body.classList.add("modal-open");
+    return () => document.body.classList.remove("modal-open");
+  }, [
+    addPerson,
+    birthdayCalendar,
+    editFoodIndex,
+    editIndex,
+    modal,
+    teamNameModal,
+    washModal,
+  ]);
+  useEffect(() => {
     pasteFetch("/api/auth", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
@@ -853,6 +874,7 @@ export default function Home() {
         )}
         {canEdit && modal && (
           <NewFood
+            people={team}
             close={() => setModal(false)}
             add={(f) => {
               setFoods((x) => [f, ...x]);
@@ -1374,9 +1396,11 @@ function FoodRow({
   );
 }
 function NewFood({
+  people,
   close,
   add,
 }: {
+  people: Person[];
   close: () => void;
   add: (x: Food) => void;
 }) {
@@ -1387,9 +1411,11 @@ function NewFood({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (n)
+          const person = people.find((item) => item[0] === n);
+          if (person)
             add({
-              name: n,
+              name: person[0],
+              displayName: displayName(person),
               why: r || "Evento speciale",
               date: new Date().toLocaleDateString("it-IT", {
                 day: "2-digit",
@@ -1397,7 +1423,7 @@ function NewFood({
               }),
               status: "Da portare",
               note: "",
-              initials: initialsFor(n),
+              initials: person[1],
             });
         }}
       >
@@ -1408,12 +1434,19 @@ function NewFood({
         <h2>Chi deve portare?</h2>
         <label>
           Nome
-          <input
+          <select
             autoFocus
+            required
             value={n}
             onChange={(e) => setN(e.target.value)}
-            placeholder="Es. Marco Rossi"
-          />
+          >
+            <option value="">Seleziona una persona</option>
+            {people.map((person) => (
+              <option key={person[0]} value={person[0]}>
+                {displayName(person)} ({person[2]})
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Motivo
