@@ -104,6 +104,11 @@ const initialsFor = (name: string) =>
     .slice(0, 2)
     .toUpperCase();
 const displayName = (person: Person) => person[6]?.trim() || person[0];
+const sortBySurname = (players: Person[]) =>
+  [...players].sort((a, b) => {
+    const surname = (person: Person) => person[0].trim().split(/\s+/).at(-1)!;
+    return surname.localeCompare(surname(b), "it", { sensitivity: "base" });
+  });
 export default function Home() {
   const [tab, setTab] = useState("home"),
     [auth, setAuth] = useState<AuthInfo | null>(null),
@@ -112,13 +117,8 @@ export default function Home() {
     [teamNameModal, setTeamNameModal] = useState(false),
     [team, setTeam] = useState(people),
     [foods, setFoods] = useState(initial),
-    [kits, setKits] = useState(
-      [...people.filter((x) => x[2] === "Giocatore")].sort((a, b) =>
-        (a[0] as string)
-          .split(" ")
-          .at(-1)!
-          .localeCompare((b[0] as string).split(" ").at(-1)!),
-      ),
+    [kits, setKits] = useState(() =>
+      sortBySurname(people.filter((x) => x[2] === "Giocatore")),
     ),
     [modal, setModal] = useState(false),
     [washModal, setWashModal] = useState(false),
@@ -192,7 +192,7 @@ export default function Home() {
       if (!active) return;
       if (Array.isArray(data.team)) setTeam(data.team);
       if (Array.isArray(data.foods)) setFoods(data.foods);
-      if (Array.isArray(data.kits)) setKits(data.kits);
+      if (Array.isArray(data.kits)) setKits(sortBySurname(data.kits));
       if (typeof data.teamName === "string" && data.teamName.trim())
         setTeamName(data.teamName.trim());
       setCaptainName(payload.captainName || auth.captainName);
@@ -249,7 +249,7 @@ export default function Home() {
       const updated = [...washer] as Person;
       updated[5] = Number(updated[5]) + 1;
       const remaining = kits.filter((_, i) => i !== index);
-      setKits([...remaining, updated]);
+      setKits(sortBySurname([...remaining, updated]));
       setTeam((current) =>
         current.map((person) =>
           person[0] === washer[0]
@@ -753,11 +753,13 @@ export default function Home() {
                     x.map((p, i) => (i === editIndex ? updated : p)),
                   );
                   setKits((x) =>
-                    updated[2] === "Allenatore"
-                      ? x.filter((p) => p[0] !== oldName)
-                      : x.some((p) => p[0] === oldName)
-                        ? x.map((p) => (p[0] === oldName ? updated : p))
-                        : [...x, updated],
+                    sortBySurname(
+                      updated[2] === "Allenatore"
+                        ? x.filter((p) => p[0] !== oldName)
+                        : x.some((p) => p[0] === oldName)
+                          ? x.map((p) => (p[0] === oldName ? updated : p))
+                          : [...x, updated],
+                    ),
                   );
                   setFoods((x) =>
                     x.map((food) =>
@@ -802,7 +804,7 @@ export default function Home() {
                 save={(created) => {
                   setTeam((current) => [...current, created]);
                   if (created[2] === "Giocatore")
-                    setKits((current) => [...current, created]);
+                    setKits((current) => sortBySurname([...current, created]));
                   setAddPerson(false);
                   flash("Persona aggiunta");
                 }}
@@ -1398,6 +1400,8 @@ function EditPerson({
     [nickname, setNickname] = useState(person[6] || ""),
     [birthday, setBirthday] = useState(person[3] as string),
     [role, setRole] = useState<Person[2]>(person[2]),
+    [foodCount, setFoodCount] = useState(Number(person[4]) || 0),
+    [kitCount, setKitCount] = useState(Number(person[5]) || 0),
     [confirmDelete, setConfirmDelete] = useState(false);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1408,8 +1412,8 @@ function EditPerson({
         initialsFor(nickname.trim() || full),
         role,
         birthday,
-        person[4],
-        person[5],
+        Math.max(0, foodCount),
+        Math.max(0, kitCount),
         nickname.trim(),
       ]);
   };
@@ -1475,6 +1479,28 @@ function EditPerson({
             <option>Allenatore</option>
           </select>
         </label>
+        <div className="edit-grid">
+          <label>
+            Volte ha portato
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={foodCount}
+              onChange={(e) => setFoodCount(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Volte ha lavato le divise
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={kitCount}
+              onChange={(e) => setKitCount(Number(e.target.value))}
+            />
+          </label>
+        </div>
         <div className="edit-actions">
           {remove && confirmDelete ? (
             <div className="delete-confirm">
