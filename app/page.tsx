@@ -27,6 +27,7 @@ type Food = {
   note: string;
   initials: string;
   birthdayKey?: string;
+  displayName?: string;
 };
 type Person = [
   name: string,
@@ -35,6 +36,7 @@ type Person = [
   birthday: string,
   foodCount: number,
   kitCount: number,
+  nickname?: string,
 ];
 type AuthInfo = {
   authenticated: boolean;
@@ -101,6 +103,7 @@ const initialsFor = (name: string) =>
     .join("")
     .slice(0, 2)
     .toUpperCase();
+const displayName = (person: Person) => person[6]?.trim() || person[0];
 export default function Home() {
   const [tab, setTab] = useState("home"),
     [auth, setAuth] = useState<AuthInfo | null>(null),
@@ -250,7 +253,7 @@ export default function Home() {
       setTeam((current) =>
         current.map((person) =>
           person[0] === washer[0]
-            ? ([...person.slice(0, 5), Number(person[5]) + 1] as Person)
+            ? ([...person.slice(0, 5), Number(person[5]) + 1, person[6]] as Person)
             : person,
         ),
       );
@@ -258,9 +261,9 @@ export default function Home() {
       setWashModal(false);
       flash(
         "Divise lavate da " +
-          washer[0] +
+          displayName(washer) +
           ". Il prossimo turno è di " +
-          (remaining[0]?.[0] || washer[0]),
+          (remaining[0] ? displayName(remaining[0]) : displayName(washer)),
       );
     };
   const nav = [
@@ -285,6 +288,7 @@ export default function Home() {
               ...person.slice(0, 4),
               Number(person[4]) + 1,
               person[5],
+              person[6],
             ] as Person)
           : person,
       ),
@@ -296,6 +300,7 @@ export default function Home() {
               ...person.slice(0, 4),
               Number(person[4]) + 1,
               person[5],
+              person[6],
             ] as Person)
           : person,
       ),
@@ -440,7 +445,7 @@ export default function Home() {
               <Card
                 t="TURNO DIVISE"
                 v={(next?.[1] as string) || "—"}
-                d={(next?.[0] as string) || "Nessun giocatore"}
+                d={next ? displayName(next) : "Nessun giocatore"}
                 c="purple"
                 i={<Shirt />}
                 go={() => setTab("divise")}
@@ -450,7 +455,7 @@ export default function Home() {
                 v={nextBirthday ? String(nextBirthday.date.getDate()) : "—"}
                 d={
                   nextBirthday
-                    ? `${nextBirthday.days === 0 ? "oggi" : nextBirthday.date.toLocaleDateString("it-IT", { month: "long" })} · ${nextBirthday.person[0].split(" ")[0]}`
+                    ? `${nextBirthday.days === 0 ? "oggi" : nextBirthday.date.toLocaleDateString("it-IT", { month: "long" })} · ${displayName(nextBirthday.person).split(" ")[0]}`
                     : "Nessuna data inserita"
                 }
                 c={
@@ -489,7 +494,7 @@ export default function Home() {
                   <Shirt size={34} />
                 </div>
                 <small>TURNO DIVISE</small>
-                <h2>{next?.[0] || "Nessun giocatore"}</h2>
+                <h2>{next ? displayName(next) : "Nessun giocatore"}</h2>
                 {canEdit && (
                   <div className="wash-actions">
                     <button
@@ -531,7 +536,7 @@ export default function Home() {
                     </b>
                     <Avatar x={x[1] as string} />
                     <span>
-                      <strong>{x[0]}</strong>
+                      <strong>{displayName(x)}</strong>
                       <small>
                         {days === 0
                           ? "Oggi 🎉"
@@ -658,7 +663,7 @@ export default function Home() {
                       i === 0 ? { color: "#fff", fontSize: 18 } : undefined
                     }
                   >
-                    {x[0]}
+                    {displayName(x)}
                   </strong>
                   <span style={i === 0 ? { color: "#e9e4ff" } : undefined}>
                     {i === 0 ? "Tocca a lui" : `Ha lavato ${x[5]} volta/e`}
@@ -713,7 +718,7 @@ export default function Home() {
                     >
                       {x[2]}
                     </small>
-                    <h3>{x[0]}</h3>
+                      <h3>{displayName(x)}</h3>
                     <span>Compleanno · {formatBirthday(x[3])}</span>
                   </div>
                   <div className="stat">
@@ -727,7 +732,7 @@ export default function Home() {
                   {canEdit && (
                     <button
                       className="edit-person"
-                      aria-label={`Modifica ${x[0]}`}
+                      aria-label={`Modifica ${displayName(x)}`}
                       onClick={() => setEditIndex(i)}
                     >
                       <Pencil size={16} />
@@ -760,6 +765,7 @@ export default function Home() {
                         ? {
                             ...food,
                             name: updated[0] as string,
+                            displayName: displayName(updated),
                             initials: updated[1] as string,
                             birthdayKey: food.birthdayKey?.replace(
                               String(oldName),
@@ -915,7 +921,7 @@ export default function Home() {
                   >
                     <Avatar x={x[1] as string} />
                     <strong style={{ flex: 1, color: "#172033" }}>
-                      {x[0]}
+                      {displayName(x)}
                     </strong>
                     <span
                       style={{
@@ -1299,7 +1305,7 @@ function FoodRow({
     >
       <Avatar x={f.initials} />
       <div>
-        <strong>{f.name}</strong>
+        <strong>{f.displayName || f.name}</strong>
         <span>
           {f.why} · {f.date}
         </span>
@@ -1389,6 +1395,7 @@ function EditPerson({
   const parts = (person[0] as string).split(" "),
     [name, setName] = useState(parts.slice(0, -1).join(" ") || parts[0]),
     [surname, setSurname] = useState(parts.length > 1 ? parts.at(-1)! : ""),
+    [nickname, setNickname] = useState(person[6] || ""),
     [birthday, setBirthday] = useState(person[3] as string),
     [role, setRole] = useState<Person[2]>(person[2]),
     [confirmDelete, setConfirmDelete] = useState(false);
@@ -1396,7 +1403,15 @@ function EditPerson({
     e.preventDefault();
     const full = [name.trim(), surname.trim()].filter(Boolean).join(" ");
     if (full && birthday)
-      save([full, initialsFor(full), role, birthday, person[4], person[5]]);
+      save([
+        full,
+        initialsFor(nickname.trim() || full),
+        role,
+        birthday,
+        person[4],
+        person[5],
+        nickname.trim(),
+      ]);
   };
   return (
     <div className="back" onClick={close}>
@@ -1433,6 +1448,14 @@ function EditPerson({
             />
           </label>
         </div>
+        <label>
+          Soprannome
+          <input
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="Es. Bobo"
+          />
+        </label>
         <label>
           Data di nascita
           <input
@@ -1598,8 +1621,8 @@ function BirthdayCalendar({
               >
                 <strong>{day}</strong>
                 {birthdays[day]?.map((person) => (
-                  <span key={person[0]} title={person[0]}>
-                    🎂 {person[0].split(" ")[0]}
+                  <span key={person[0]} title={displayName(person)}>
+                    🎂 {displayName(person).split(" ")[0]}
                   </span>
                 ))}
               </div>
