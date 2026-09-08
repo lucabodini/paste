@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   CalendarDays,
   ChefHat,
@@ -132,9 +133,7 @@ export default function Home() {
       team: Person[];
     } | null>(null),
     [washingKit, setWashingKit] = useState<string | null>(null),
-    [arrivedKit, setArrivedKit] = useState<string | null>(null),
     [deliveringFood, setDeliveringFood] = useState<string | null>(null),
-    [arrivedFood, setArrivedFood] = useState<string | null>(null),
     [modal, setModal] = useState(false),
     [washModal, setWashModal] = useState(false),
     [washChoice, setWashChoice] = useState(0),
@@ -280,6 +279,14 @@ export default function Home() {
       setToast(t);
       setTimeout(() => setToast(""), 2000);
     },
+    runLayoutTransition = (update: () => void) => {
+      const documentWithTransition = document as Document & {
+        startViewTransition?: (callback: () => void) => void;
+      };
+      if (documentWithTransition.startViewTransition)
+        documentWithTransition.startViewTransition(() => flushSync(update));
+      else update();
+    },
     regenerateKitRound = () => {
       if (auth?.role !== "captain") return;
       setKitUndo({ kits, team });
@@ -302,6 +309,7 @@ export default function Home() {
       setWashingKit(washer[0]);
       setWashModal(false);
       setTimeout(() => {
+      runLayoutTransition(() => {
       setKitUndo({ kits, team });
       const updated = [...washer] as Person;
       updated[5] = Number(updated[5]) + 1;
@@ -315,15 +323,14 @@ export default function Home() {
         ),
       );
       setWashChoice(0);
-      setWashingKit(null);
-      setArrivedKit(washer[0]);
-      setTimeout(() => setArrivedKit(null), 620);
       flash(
         "Divise lavate da " +
           displayName(washer) +
           ". Il prossimo turno è di " +
           (remaining[0] ? displayName(remaining[0]) : displayName(washer)),
       );
+      });
+      setTimeout(() => setWashingKit(null), 500);
       }, 420);
     };
   const nav = [
@@ -352,6 +359,7 @@ export default function Home() {
     if (!delivered || delivered.status === "Portato") return;
     setDeliveringFood(delivered.name);
     setTimeout(() => {
+    runLayoutTransition(() => {
     setFoods((x) =>
       x.map((f, n) =>
         n === i ? { ...f, status: "Portato", note: delivery } : f,
@@ -381,10 +389,9 @@ export default function Home() {
           : person,
       ),
     );
-    setDeliveringFood(null);
-    setArrivedFood(delivered.name);
-    setTimeout(() => setArrivedFood(null), 620);
     flash("Spostato nello storico");
+    });
+    setTimeout(() => setDeliveringFood(null), 500);
     }, 420);
   };
   if (!auth)
@@ -584,7 +591,6 @@ export default function Home() {
                       mark={mark}
                       canEdit={canEdit}
                       moving={deliveringFood === f.name}
-                      arriving={arrivedFood === f.name}
                     />
                   ))}
               </article>
@@ -690,7 +696,6 @@ export default function Home() {
                       mark={mark}
                       canEdit={canEdit}
                       moving={deliveringFood === f.name}
-                      arriving={arrivedFood === f.name}
                     />
                   ))}
               </article>
@@ -725,7 +730,6 @@ export default function Home() {
                       mark={mark}
                       canEdit={canEdit}
                       moving={deliveringFood === f.name}
-                      arriving={arrivedFood === f.name}
                       edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
@@ -746,9 +750,9 @@ export default function Home() {
             <article className="panel kitlist">
               {kits.map((x, i) => (
                 <div
-                  className={`kit${i === 0 ? " current" : ""}${washingKit === x[0] ? " washing" : ""}${arrivedKit === x[0] ? " kit-arriving" : ""}`}
-                  style={
-                    i === 0
+                  className={`kit${i === 0 ? " current" : ""}`}
+                  style={{
+                    ...(i === 0
                       ? {
                           background: "linear-gradient(110deg,#7657ed,#5435ca)",
                           color: "#fff",
@@ -758,8 +762,10 @@ export default function Home() {
                           padding: "0 18px",
                           boxShadow: "0 10px 24px #6043d22e",
                         }
-                      : undefined
-                  }
+                      : {}),
+                    viewTransitionName:
+                      washingKit === x[0] ? "moving-kit" : undefined,
+                  }}
                   key={x[0] as string}
                 >
                   <small
@@ -1413,7 +1419,6 @@ function FoodRow({
   canEdit,
   edit,
   moving = false,
-  arriving = false,
 }: {
   f: Food;
   i: number;
@@ -1421,7 +1426,6 @@ function FoodRow({
   canEdit: boolean;
   edit?: () => void;
   moving?: boolean;
-  arriving?: boolean;
 }) {
   const due = f.status === "Da portare",
     open = () => {
@@ -1449,13 +1453,14 @@ function FoodRow({
     };
   return (
     <div
-      className={`food${moving ? " delivering" : ""}${arriving ? " food-arriving" : ""}`}
+      className="food"
       style={{
         background: "#fff",
         borderRadius: 10,
         padding: "14px 12px",
         margin: "8px 0",
         border: "1px solid #e0e5eb",
+        viewTransitionName: moving ? "moving-food" : undefined,
       }}
     >
       <Avatar x={f.initials} />
