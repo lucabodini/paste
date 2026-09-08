@@ -820,6 +820,46 @@ h3 {
 .top > .birthday-calendar-button {
   background: #6948e8;
 }
+.team-search {
+  display: flex;
+  width: min(260px, 100%);
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #dfe4ec;
+  border-radius: 10px;
+  background: #fff;
+  color: #7a8494;
+}
+.team-search:focus-within {
+  border-color: #6948e8;
+  box-shadow: 0 0 0 3px #6948e81c;
+}
+.team-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #172033;
+  font: inherit;
+  font-size: 14px;
+}
+.roster-section,
+.roster-empty {
+  grid-column: 1 / -1;
+  margin: 10px 0 -2px;
+  color: #7b8493;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.roster-empty {
+  margin: 20px 0;
+  text-align: center;
+}
 .table {
   padding-top: 3px;
   padding-bottom: 3px;
@@ -1539,6 +1579,10 @@ h3 {
   }
   .top > button {
     justify-content: center;
+  }
+  .team-search {
+    order: 3;
+    width: 100%;
   }
   .content > header > div:first-of-type {
     min-width: 0;

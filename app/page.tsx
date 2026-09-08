@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   CalendarDays,
   ChefHat,
@@ -12,6 +12,7 @@ import {
   Menu,
   Pencil,
   Plus,
+  Search,
   Shirt,
   Trash2,
   Users,
@@ -133,6 +134,7 @@ export default function Home() {
     [editFoodIndex, setEditFoodIndex] = useState<number | null>(null),
     [addPerson, setAddPerson] = useState(false),
     [birthdayCalendar, setBirthdayCalendar] = useState(false),
+    [teamSearch, setTeamSearch] = useState(""),
     [mobileMenu, setMobileMenu] = useState(false),
     [hydrated, setHydrated] = useState(false),
     [toast, setToast] = useState("");
@@ -374,6 +376,16 @@ export default function Home() {
       </div>
     );
   const canEdit = auth.role === "captain";
+  const normalizedTeamSearch = teamSearch.trim().toLocaleLowerCase("it-IT");
+  const visibleTeam = team
+    .map((person, index) => ({ person, index }))
+    .filter(({ person }) => {
+      if (!normalizedTeamSearch) return true;
+      return `${person[0]} ${person[2]} ${displayName(person)}`
+        .toLocaleLowerCase("it-IT")
+        .includes(normalizedTeamSearch);
+    })
+    .sort((a, b) => Number(a.person[2] === "Allenatore") - Number(b.person[2] === "Allenatore"));
   return (
     <main className="app">
       <aside className={mobileMenu ? "mobile-open" : ""}>
@@ -753,10 +765,26 @@ export default function Home() {
                 <CalendarDays size={17} />
                 Calendario compleanni
               </button>
+              <label className="team-search">
+                <Search size={17} />
+                <input
+                  type="search"
+                  value={teamSearch}
+                  onChange={(event) => setTeamSearch(event.target.value)}
+                  placeholder="Cerca persona"
+                  aria-label="Cerca nella squadra"
+                />
+              </label>
             </div>
             <div className="roster">
-              {team.map((x, i) => (
-                <article className="person" key={x[0] as string}>
+              {visibleTeam.map(({ person: x, index: i }, position) => (
+                <Fragment key={x[0] as string}>
+                  {x[2] === "Allenatore" &&
+                    (position === 0 ||
+                      visibleTeam[position - 1].person[2] !== "Allenatore") && (
+                      <p className="roster-section">Allenatori</p>
+                    )}
+                <article className="person">
                   <Avatar x={x[1] as string} big />
                   <div>
                     <small
@@ -791,7 +819,11 @@ export default function Home() {
                     </button>
                   )}
                 </article>
+                </Fragment>
               ))}
+              {!visibleTeam.length && (
+                <p className="roster-empty">Nessuna persona trovata.</p>
+              )}
             </div>
             {canEdit && editIndex !== null && team[editIndex] && (
               <EditPerson
