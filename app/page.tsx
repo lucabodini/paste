@@ -672,6 +672,7 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
+                      edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
               </article>
@@ -1328,11 +1329,13 @@ function FoodRow({
   i,
   mark,
   canEdit,
+  edit,
 }: {
   f: Food;
   i: number;
   mark: (i: number, delivery: string) => void;
   canEdit: boolean;
+  edit?: () => void;
 }) {
   const due = f.status === "Da portare",
     open = () => {
@@ -1386,6 +1389,15 @@ function FoodRow({
         <b className="pending">Da portare</b>
       ) : (
         <b className="ok">Ha portato</b>
+      )}
+      {canEdit && edit && (
+        <button
+          className="edit-person"
+          aria-label={`Modifica voce di ${f.displayName || f.name}`}
+          onClick={edit}
+        >
+          <Pencil size={16} />
+        </button>
       )}
     </div>
   );

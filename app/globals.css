@@ -659,6 +659,10 @@ h3 {
 .food em {
   color: #bb6638;
 }
+.food .edit-person {
+  position: static;
+  flex: none;
+}
 .done,
 .top > button,
 .back form > button,
