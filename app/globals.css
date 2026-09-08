@@ -898,6 +898,31 @@ h3 {
 .kitlist {
   padding: 6px 23px;
 }
+.divise-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-bottom: 18px;
+}
+.divise-actions button {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 14px;
+  background: #6948e8;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.divise-actions button:last-child {
+  background: #eef1f5;
+  color: #4d5868;
+}
+.divise-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
 .kit {
   height: 70px;
   border-bottom: 1px solid #edf0f4;
@@ -1673,6 +1698,12 @@ h3 {
   }
   .kitlist {
     padding: 6px 15px;
+  }
+  .divise-actions {
+    justify-content: stretch;
+  }
+  .divise-actions button {
+    flex: 1;
   }
   .kit {
     gap: 8px;

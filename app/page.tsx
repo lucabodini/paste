@@ -127,6 +127,10 @@ export default function Home() {
     [kits, setKits] = useState(() =>
       sortBySurname(people.filter((x) => x[2] === "Giocatore")),
     ),
+    [kitUndo, setKitUndo] = useState<{
+      kits: Person[];
+      team: Person[];
+    } | null>(null),
     [modal, setModal] = useState(false),
     [washModal, setWashModal] = useState(false),
     [washChoice, setWashChoice] = useState(0),
@@ -272,10 +276,26 @@ export default function Home() {
       setToast(t);
       setTimeout(() => setToast(""), 2000);
     },
+    regenerateKitRound = () => {
+      if (auth?.role !== "captain") return;
+      setKitUndo({ kits, team });
+      setKits(sortBySurname(team.filter((person) => person[2] === "Giocatore")));
+      setWashChoice(0);
+      flash("Giro divise rigenerato");
+    },
+    undoKitAction = () => {
+      if (auth?.role !== "captain" || !kitUndo) return;
+      setKits(kitUndo.kits);
+      setTeam(kitUndo.team);
+      setKitUndo(null);
+      setWashChoice(0);
+      flash("Ultima azione annullata");
+    },
     washPlayer = (index: number) => {
       if (auth?.role !== "captain") return;
       const washer = kits[index];
       if (!washer) return;
+      setKitUndo({ kits, team });
       const updated = [...washer] as Person;
       updated[5] = Number(updated[5]) + 1;
       const remaining = kits.filter((_, i) => i !== index);
@@ -693,6 +713,14 @@ export default function Home() {
         )}
         {tab === "divise" && (
           <section className="page page-enter">
+            {canEdit && (
+              <div className="divise-actions">
+                <button onClick={regenerateKitRound}>Rigenera giro</button>
+                <button onClick={undoKitAction} disabled={!kitUndo}>
+                  Annulla
+                </button>
+              </div>
+            )}
             <article className="panel kitlist">
               {kits.map((x, i) => (
                 <div
