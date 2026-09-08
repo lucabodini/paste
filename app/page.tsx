@@ -131,6 +131,10 @@ export default function Home() {
       kits: Person[];
       team: Person[];
     } | null>(null),
+    [washingKit, setWashingKit] = useState<string | null>(null),
+    [arrivedKit, setArrivedKit] = useState<string | null>(null),
+    [deliveringFood, setDeliveringFood] = useState<string | null>(null),
+    [arrivedFood, setArrivedFood] = useState<string | null>(null),
     [modal, setModal] = useState(false),
     [washModal, setWashModal] = useState(false),
     [washChoice, setWashChoice] = useState(0),
@@ -292,9 +296,12 @@ export default function Home() {
       flash("Ultima azione annullata");
     },
     washPlayer = (index: number) => {
-      if (auth?.role !== "captain") return;
+      if (auth?.role !== "captain" || washingKit) return;
       const washer = kits[index];
       if (!washer) return;
+      setWashingKit(washer[0]);
+      setWashModal(false);
+      setTimeout(() => {
       setKitUndo({ kits, team });
       const updated = [...washer] as Person;
       updated[5] = Number(updated[5]) + 1;
@@ -308,13 +315,16 @@ export default function Home() {
         ),
       );
       setWashChoice(0);
-      setWashModal(false);
+      setWashingKit(null);
+      setArrivedKit(washer[0]);
+      setTimeout(() => setArrivedKit(null), 620);
       flash(
         "Divise lavate da " +
           displayName(washer) +
           ". Il prossimo turno è di " +
           (remaining[0] ? displayName(remaining[0]) : displayName(washer)),
       );
+      }, 420);
     };
   const nav = [
     ["home", "Panoramica", ClipboardList],
@@ -337,9 +347,11 @@ export default function Home() {
     flash("Voce aggiornata");
   };
   const mark = (i: number, delivery: string) => {
-    if (auth?.role !== "captain") return;
+    if (auth?.role !== "captain" || deliveringFood) return;
     const delivered = foods[i];
     if (!delivered || delivered.status === "Portato") return;
+    setDeliveringFood(delivered.name);
+    setTimeout(() => {
     setFoods((x) =>
       x.map((f, n) =>
         n === i ? { ...f, status: "Portato", note: delivery } : f,
@@ -369,7 +381,11 @@ export default function Home() {
           : person,
       ),
     );
+    setDeliveringFood(null);
+    setArrivedFood(delivered.name);
+    setTimeout(() => setArrivedFood(null), 620);
     flash("Spostato nello storico");
+    }, 420);
   };
   if (!auth)
     return (
@@ -567,6 +583,8 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
+                      moving={deliveringFood === f.name}
+                      arriving={arrivedFood === f.name}
                     />
                   ))}
               </article>
@@ -671,6 +689,8 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
+                      moving={deliveringFood === f.name}
+                      arriving={arrivedFood === f.name}
                     />
                   ))}
               </article>
@@ -704,6 +724,8 @@ export default function Home() {
                       i={foods.indexOf(f)}
                       mark={mark}
                       canEdit={canEdit}
+                      moving={deliveringFood === f.name}
+                      arriving={arrivedFood === f.name}
                       edit={() => setEditFoodIndex(foods.indexOf(f))}
                     />
                   ))}
@@ -724,7 +746,7 @@ export default function Home() {
             <article className="panel kitlist">
               {kits.map((x, i) => (
                 <div
-                  className={i === 0 ? "kit current" : "kit"}
+                  className={`kit${i === 0 ? " current" : ""}${washingKit === x[0] ? " washing" : ""}${arrivedKit === x[0] ? " kit-arriving" : ""}`}
                   style={
                     i === 0
                       ? {
@@ -1390,12 +1412,16 @@ function FoodRow({
   mark,
   canEdit,
   edit,
+  moving = false,
+  arriving = false,
 }: {
   f: Food;
   i: number;
   mark: (i: number, delivery: string) => void;
   canEdit: boolean;
   edit?: () => void;
+  moving?: boolean;
+  arriving?: boolean;
 }) {
   const due = f.status === "Da portare",
     open = () => {
@@ -1423,7 +1449,7 @@ function FoodRow({
     };
   return (
     <div
-      className="food"
+      className={`food${moving ? " delivering" : ""}${arriving ? " food-arriving" : ""}`}
       style={{
         background: "#fff",
         borderRadius: 10,
