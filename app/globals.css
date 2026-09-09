@@ -407,6 +407,33 @@ h3 {
   align-items: center;
   gap: 8px;
 }
+.push-button,
+.push-test-button {
+  min-height: 39px;
+  border: 1px solid #e1e5ec;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  color: #596577;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.push-button.active {
+  color: #3c752a;
+  border-color: #b9dcad;
+  background: #f2faed;
+}
+.push-test-button {
+  color: #6045c5;
+  background: #f7f5ff;
+  border-color: #ded7fb;
+}
 .role-chip {
   padding: 7px 9px;
   border-radius: 999px;
@@ -1601,6 +1628,14 @@ h3 {
   }
   .header-actions {
     gap: 6px;
+  }
+  .push-button span,
+  .push-test-button {
+    display: none;
+  }
+  .push-button {
+    width: 40px;
+    padding: 0;
   }
   .role-chip {
     display: none;

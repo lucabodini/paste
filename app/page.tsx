@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   CalendarDays,
+  Bell,
   ChefHat,
   Check,
   ChevronLeft,
@@ -20,6 +21,13 @@ import {
   X,
 } from "lucide-react";
 import { pasteFetch } from "@/lib/client-api";
+import {
+  disableBirthdayPush,
+  enableBirthdayPush,
+  getPushStatus,
+  isPushSupported,
+  testBirthdayPush,
+} from "@/lib/push-notifications";
 
 type Food = {
   name: string;
@@ -144,6 +152,7 @@ export default function Home() {
     [teamSearch, setTeamSearch] = useState(""),
     [mobileMenu, setMobileMenu] = useState(false),
     [hydrated, setHydrated] = useState(false),
+    [pushStatus, setPushStatus] = useState<"enabled" | "disabled" | "denied" | "unsupported">("unsupported"),
     [toast, setToast] = useState("");
   useEffect(() => {
     if (!mobileMenu) return;
@@ -241,6 +250,10 @@ export default function Home() {
     };
   }, [auth?.authenticated, auth?.role]);
   useEffect(() => {
+    if (!auth?.authenticated) return;
+    getPushStatus().then(setPushStatus).catch(() => setPushStatus("unsupported"));
+  }, [auth?.authenticated]);
+  useEffect(() => {
     if (!hydrated || auth?.role !== "captain") return;
     localStorage.setItem(
       "terzo-tempo-data",
@@ -333,6 +346,22 @@ export default function Home() {
       setTimeout(() => setWashingKit(null), 500);
       }, 420);
     };
+  const toggleBirthdayPush = async () => {
+    try {
+      if (pushStatus === "enabled") {
+        await disableBirthdayPush();
+        setPushStatus("disabled");
+        flash("Notifiche compleanni disattivate");
+      } else {
+        await enableBirthdayPush();
+        setPushStatus("enabled");
+        flash("Notifiche compleanni attivate");
+      }
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Impossibile aggiornare le notifiche");
+      getPushStatus().then(setPushStatus).catch(() => undefined);
+    }
+  };
   const nav = [
     ["home", "Panoramica", ClipboardList],
     ["paste", "Paste", ChefHat],
@@ -490,6 +519,35 @@ export default function Home() {
           </div>
           <div className="header-actions">
             {canEdit && <span className="role-chip captain">Capitano</span>}
+            {isPushSupported() && (
+              <button
+                className={`push-button${pushStatus === "enabled" ? " active" : ""}`}
+                type="button"
+                onClick={toggleBirthdayPush}
+                aria-pressed={pushStatus === "enabled"}
+                title={pushStatus === "enabled" ? "Disattiva notifiche compleanni" : "Attiva notifiche compleanni"}
+              >
+                <Bell size={17} />
+                <span>{pushStatus === "enabled" ? "Notifiche attive" : "Attiva notifiche"}</span>
+              </button>
+            )}
+            {pushStatus === "enabled" && (
+              <button
+                className="push-test-button"
+                type="button"
+                onClick={async () => {
+                  try {
+                    await testBirthdayPush();
+                    flash("Notifica di test inviata");
+                  } catch (error) {
+                    flash(error instanceof Error ? error.message : "Test notifiche non riuscito");
+                  }
+                }}
+                title="Invia una notifica di test a questo dispositivo"
+              >
+                Test
+              </button>
+            )}
             <button
               className="date date-button"
               onClick={() => setBirthdayCalendar(true)}

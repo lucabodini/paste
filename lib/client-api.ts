@@ -1,7 +1,10 @@
-const SUPABASE_URL = "https://hoawdjclpuxxjphvcamx.supabase.co";
-const SUPABASE_KEY =
+export const SUPABASE_URL = "https://hoawdjclpuxxjphvcamx.supabase.co";
+export const SUPABASE_KEY =
   "sb_publishable_o6HUBTeQfCL9rWKPYMQ16Q_u8X2FeIM";
-const SESSION_KEY = "paste-supabase-session";
+export const SESSION_KEY = "paste-supabase-session";
+
+export const getPasteSessionToken = () =>
+  typeof window === "undefined" ? "" : localStorage.getItem(SESSION_KEY) || "";
 
 const response = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
