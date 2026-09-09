@@ -1,0 +1,2 @@
+[functions.birthday-push]
+verify_jwt = false
