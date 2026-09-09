@@ -15,6 +15,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Settings,
   Shirt,
   Trash2,
   Users,
@@ -362,11 +363,20 @@ export default function Home() {
       getPushStatus().then(setPushStatus).catch(() => undefined);
     }
   };
+  const sendPushTest = async () => {
+    try {
+      await testBirthdayPush();
+      flash("Notifica di test inviata");
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Test notifiche non riuscito");
+    }
+  };
   const nav = [
     ["home", "Panoramica", ClipboardList],
     ["paste", "Paste", ChefHat],
     ["divise", "Divise", Shirt],
     ["squadra", "Squadra", Users],
+    ["impostazioni", "Impostazioni", Settings],
   ];
   const removeFood = (index: number) => {
     if (auth?.role !== "captain") return;
@@ -519,35 +529,6 @@ export default function Home() {
           </div>
           <div className="header-actions">
             {canEdit && <span className="role-chip captain">Capitano</span>}
-            {isPushSupported() && (
-              <button
-                className={`push-button${pushStatus === "enabled" ? " active" : ""}`}
-                type="button"
-                onClick={toggleBirthdayPush}
-                aria-pressed={pushStatus === "enabled"}
-                title={pushStatus === "enabled" ? "Disattiva notifiche compleanni" : "Attiva notifiche compleanni"}
-              >
-                <Bell size={17} />
-                <span>{pushStatus === "enabled" ? "Notifiche attive" : "Attiva notifiche"}</span>
-              </button>
-            )}
-            {pushStatus === "enabled" && (
-              <button
-                className="push-test-button"
-                type="button"
-                onClick={async () => {
-                  try {
-                    await testBirthdayPush();
-                    flash("Notifica di test inviata");
-                  } catch (error) {
-                    flash(error instanceof Error ? error.message : "Test notifiche non riuscito");
-                  }
-                }}
-                title="Invia una notifica di test a questo dispositivo"
-              >
-                Test
-              </button>
-            )}
             <button
               className="date date-button"
               onClick={() => setBirthdayCalendar(true)}
@@ -1006,6 +987,46 @@ export default function Home() {
                 }}
               />
             )}
+          </section>
+        )}
+        {tab === "impostazioni" && (
+          <section className="settings-page page-enter">
+            <article className="panel settings-card">
+              <div className="settings-card-title">
+                <span className="settings-icon"><Bell size={21} /></span>
+                <div>
+                  <p>NOTIFICHE</p>
+                  <h2>Compleanni della squadra</h2>
+                </div>
+              </div>
+              <p className="settings-description">
+                Ricevi una notifica quando è il compleanno di un membro della squadra,
+                anche quando Paste non è aperta.
+              </p>
+              {pushStatus === "unsupported" ? (
+                <p className="settings-warning">Questo browser non supporta le notifiche push.</p>
+              ) : pushStatus === "denied" ? (
+                <p className="settings-warning">Il permesso è bloccato. Riattivalo nelle impostazioni del browser o del dispositivo.</p>
+              ) : (
+                <div className="settings-actions">
+                  <button
+                    className={`push-button${pushStatus === "enabled" ? " active" : ""}`}
+                    type="button"
+                    onClick={toggleBirthdayPush}
+                    aria-pressed={pushStatus === "enabled"}
+                  >
+                    <Bell size={18} />
+                    {pushStatus === "enabled" ? "Disattiva notifiche" : "Attiva notifiche"}
+                  </button>
+                  {pushStatus === "enabled" && (
+                    <button className="push-test-button" type="button" onClick={sendPushTest}>
+                      Invia test
+                    </button>
+                  )}
+                </div>
+              )}
+              {pushStatus === "enabled" && <small className="settings-status">Notifiche push attive su questo dispositivo.</small>}
+            </article>
           </section>
         )}
         {birthdayCalendar && (
