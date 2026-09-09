@@ -252,12 +252,24 @@ body.modal-open {
   transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-weight: 900;
   line-height: 0.85;
   color: #fff;
   letter-spacing: 0.08em;
   font-size: 17px;
-  padding: 2px 10px 32px;
+  padding: 2px 10px 26px;
+}
+.brand img {
+  width: 33px;
+  height: 33px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+.brand b {
+  display: none;
 }
 .brand b,
 .club {

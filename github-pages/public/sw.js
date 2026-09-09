@@ -4,8 +4,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Compleanno 🎉", {
       body: data.body || "Oggi è un giorno speciale!",
-      icon: "favicon.svg",
-      badge: "favicon.svg",
+      icon: "team-logo.png",
+      badge: "team-logo.png",
       tag: data.tag || "paste-birthday",
       renotify: false,
       data: { url: data.url || self.registration.scope },

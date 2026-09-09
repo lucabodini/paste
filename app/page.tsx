@@ -472,6 +472,7 @@ export default function Home() {
     <main className="app">
       <aside className={mobileMenu ? "mobile-open" : ""}>
         <div className="brand">
+          <img src="team-logo.png" alt="Logo Paste" />
           <b>●</b> PASTE
         </div>
         <small>STAGIONE 2026 / 27</small>
