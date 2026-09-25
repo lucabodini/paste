@@ -617,7 +617,6 @@ export default function Home() {
               <article className="panel">
                 <div className="head">
                   <div>
-                    <p>ALLENAMENTO · VENERDÌ 12</p>
                     <h2>Chi porta da mangiare</h2>
                   </div>
                   <button onClick={() => setTab("paste")}>→</button>

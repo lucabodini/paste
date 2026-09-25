@@ -557,7 +557,7 @@ h3 {
 .card:active {
   transform: translateY(-1px) scale(0.99);
 }
-.card > div:not(.confetti),
+.card > div:not(.confetti):not(.food-rain),
 .card > b {
   position: relative;
   z-index: 2;
