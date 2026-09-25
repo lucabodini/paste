@@ -578,6 +578,7 @@ export default function Home() {
                 c="orange"
                 i={<ChefHat />}
                 go={() => setTab("paste")}
+                foodRain={foods.some((x) => x.status === "Da portare")}
               />
               <Card
                 t="TURNO DIVISE"
@@ -1458,6 +1459,7 @@ function Card(p: {
   i: React.ReactNode;
   go?: () => void;
   celebration?: boolean;
+  foodRain?: boolean;
 }) {
   return (
     <article
@@ -1480,6 +1482,37 @@ function Card(p: {
                 animationDelay: `${index * -0.13}s`,
               }}
             />
+          ))}
+        </div>
+      )}
+      {p.foodRain && (
+        <div className="food-rain" aria-hidden="true">
+          {[
+            "🍕",
+            "🍔",
+            "🍝",
+            "🥪",
+            "🌮",
+            "🍟",
+            "🍩",
+            "🍪",
+            "🍕",
+            "🍔",
+            "🍝",
+            "🥪",
+            "🌮",
+            "🍟",
+          ].map((food, index) => (
+            <i
+              key={`${food}-${index}`}
+              style={{
+                left: `${3 + index * 7.2}%`,
+                animationDelay: `${index * -0.38}s`,
+                animationDuration: `${3.8 + (index % 4) * 0.35}s`,
+              }}
+            >
+              {food}
+            </i>
           ))}
         </div>
       )}

@@ -590,6 +590,45 @@ h3 {
 .orange {
   background: linear-gradient(135deg, #ff7b43, #f04c31);
 }
+.food-rain {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.food-rain i {
+  position: absolute;
+  top: -34px;
+  display: block;
+  font-size: 19px;
+  line-height: 1;
+  opacity: 0;
+  filter: drop-shadow(0 2px 2px #8c260b55);
+  animation: food-rain-fall linear infinite;
+}
+.food-rain i:nth-child(2n) {
+  font-size: 15px;
+}
+.food-rain i:nth-child(3n) {
+  font-size: 22px;
+}
+@keyframes food-rain-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -24px, 0) rotate(-18deg);
+  }
+  12% {
+    opacity: 0.5;
+  }
+  88% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(18px, 190px, 0) rotate(240deg);
+  }
+}
 .purple {
   background: linear-gradient(135deg, #7857ef, #5132c8);
 }
@@ -1515,6 +1554,7 @@ h3 {
   }
   .birthday-card.celebrating,
   .confetti i,
+  .food-rain i,
   .page-enter,
   .toast,
   .back,
@@ -1527,7 +1567,8 @@ h3 {
   .login-brand::after {
     animation: none;
   }
-  .confetti i {
+  .confetti i,
+  .food-rain i {
     display: none;
   }
 }
