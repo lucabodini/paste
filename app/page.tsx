@@ -18,6 +18,7 @@ import {
   Settings,
   Shirt,
   Trash2,
+  Trophy,
   Users,
   X,
 } from "lucide-react";
@@ -39,7 +40,9 @@ type Food = {
   initials: string;
   birthdayKey?: string;
   displayName?: string;
+  ratingKey?: string;
 };
+type FoodRating = { foodKey: string; contributor: string; food: string; date: string; average: number; count: number; myVote: number | null; votes: { voter: string; score: number }[] };
 type Person = [
   name: string,
   initials: string,
@@ -134,6 +137,9 @@ export default function Home() {
     [teamNameModal, setTeamNameModal] = useState(false),
     [team, setTeam] = useState(people),
     [foods, setFoods] = useState(initial),
+    [anonymousVotes, setAnonymousVotes] = useState(false),
+    [foodRatings, setFoodRatings] = useState<FoodRating[]>([]),
+    [ratingBusy, setRatingBusy] = useState<string | null>(null),
     [kits, setKits] = useState(() =>
       sortBySurname(people.filter((x) => x[2] === "Giocatore")),
     ),
@@ -240,6 +246,7 @@ export default function Home() {
       if (Array.isArray(data.team)) setTeam(data.team);
       if (Array.isArray(data.foods)) setFoods(data.foods);
       if (Array.isArray(data.kits)) setKits(data.kits);
+      setAnonymousVotes(Boolean(data.anonymousVotes));
       if (typeof data.teamName === "string" && data.teamName.trim())
         setTeamName(data.teamName.trim());
       setCaptainName(payload.captainName || auth.captainName);
@@ -258,20 +265,33 @@ export default function Home() {
     if (!hydrated || auth?.role !== "captain") return;
     localStorage.setItem(
       "terzo-tempo-data",
-      JSON.stringify({ teamName, team, foods, kits }),
+      JSON.stringify({ teamName, team, foods, kits, anonymousVotes }),
     );
     const timer = setTimeout(() => {
       pasteFetch("/api/state", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          data: { teamName, team, foods, kits },
+          data: { teamName, team, foods, kits, anonymousVotes },
           captainName,
         }),
       }).catch(() => undefined);
     }, 450);
     return () => clearTimeout(timer);
-  }, [teamName, team, foods, kits, captainName, hydrated, auth?.role]);
+  }, [teamName, team, foods, kits, anonymousVotes, captainName, hydrated, auth?.role]);
+  useEffect(() => {
+    if (!auth?.authenticated || !hydrated) return;
+    let active = true;
+    const refreshRatings = async () => {
+      const response = await pasteFetch("/api/ratings", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (active && Array.isArray(data.ratings)) setFoodRatings(data.ratings);
+    };
+    refreshRatings().catch(() => undefined);
+    const timer = window.setInterval(() => refreshRatings().catch(() => undefined), 15000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [auth?.authenticated, hydrated]);
   const today = dayStart(),
     upcomingBirthdays = team
       .map((person) => {
@@ -373,6 +393,7 @@ export default function Home() {
   };
   const nav = [
     ["home", "Panoramica", ClipboardList],
+    ["classifica", "Classifica", Trophy],
     ["paste", "Paste", ChefHat],
     ["divise", "Divise", Shirt],
     ["squadra", "Squadra", Users],
@@ -401,7 +422,7 @@ export default function Home() {
     runLayoutTransition(() => {
     setFoods((x) =>
       x.map((f, n) =>
-        n === i ? { ...f, status: "Portato", note: delivery } : f,
+        n === i ? { ...f, status: "Portato", note: delivery, ratingKey: f.ratingKey || crypto.randomUUID() } : f,
       ),
     );
     setTeam((current) =>
@@ -458,6 +479,26 @@ export default function Home() {
       </div>
     );
   const canEdit = auth.role === "captain";
+  const submitFoodRating = async (foodKey: string, score: number) => {
+    setRatingBusy(foodKey);
+    try {
+      const response = await pasteFetch("/api/ratings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ foodKey, score }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Voto non salvato");
+      const refreshed = await pasteFetch("/api/ratings", { cache: "no-store" });
+      const data = await refreshed.json();
+      if (refreshed.ok && Array.isArray(data.ratings)) setFoodRatings(data.ratings);
+      flash("Voto registrato");
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Voto non salvato");
+    } finally {
+      setRatingBusy(null);
+    }
+  };
   const normalizedTeamSearch = teamSearch.trim().toLocaleLowerCase("it-IT");
   const visibleTeam = team
     .map((person, index) => ({ person, index }))
@@ -777,6 +818,41 @@ export default function Home() {
             </section>
           </section>
         )}
+        {tab === "classifica" && (() => {
+          const standings = team
+            .map((person) => {
+              const entries = foodRatings.filter((rating) => rating.contributor === person[0]);
+              const votes = entries.reduce((sum, entry) => sum + entry.count, 0);
+              return { person, entries, votes, average: votes ? entries.reduce((sum, entry) => sum + entry.average * entry.count, 0) / votes : 0 };
+            })
+            .filter((entry) => entry.votes > 0)
+            .sort((a, b) => b.average - a.average || b.votes - a.votes);
+          const podium = [
+            standings[1] && { entry: standings[1], place: 2 },
+            standings[0] && { entry: standings[0], place: 1 },
+            standings[2] && { entry: standings[2], place: 3 },
+          ].filter((item): item is { entry: (typeof standings)[number]; place: number } => Boolean(item));
+          return (
+            <section className="page page-enter ranking-page">
+              <article className="panel ranking-intro">
+                <p>TERZO TEMPO</p><h2>Classifica dei piatti</h2>
+                <span>Vota da 1 a 10 quello che hanno portato gli altri. Il tuo contributo è escluso dai tuoi voti.</span>
+              </article>
+              {standings.length > 0 && <div className="podium">{podium.map(({ entry, place }) => {
+                return <article className={`podium-place place-${place}`} key={entry.person[0]}><b>{place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}</b><Avatar x={entry.person[1]} /><strong>{displayName(entry.person)}</strong><span>{entry.average.toFixed(1)} / 10</span><small>{entry.votes} voti</small></article>;
+              })}</div>}
+              <article className="panel ranking-list">
+                <h2>Classifica aggiornata</h2>
+                {standings.map((entry, index) => <div className="ranking-row" key={entry.person[0]}><b>#{index + 1}</b><Avatar x={entry.person[1]} /><strong>{displayName(entry.person)}</strong><span>{entry.average.toFixed(1)} / 10</span><small>{entry.votes} voti</small></div>)}
+                {!standings.length && <p className="ranking-empty">La classifica si aggiornerà dopo i primi voti.</p>}
+              </article>
+              <article className="panel rate-foods"><div className="head"><div><p>ASSAGGI E VOTI</p><h2>Vota cosa hanno portato</h2></div></div>
+                {foodRatings.map((rating) => <div className="rate-food" key={rating.foodKey}><div><strong>{rating.food}</strong><small>{rating.contributor} · {rating.date}</small><span>{rating.count ? `${rating.average.toFixed(1)} / 10 · ${rating.count} voti` : "Ancora nessun voto"}</span>{rating.votes.length > 0 && <small className="rating-voter-list">{rating.votes.map((vote) => `${vote.voter}: ${vote.score}`).join(" · ")}</small>}</div>{rating.contributor !== auth.personName ? <label>Il tuo voto<select aria-label={`Voto per ${rating.food}`} value={rating.myVote ?? ""} disabled={ratingBusy === rating.foodKey} onChange={(event) => event.target.value && submitFoodRating(rating.foodKey, Number(event.target.value))}><option value="">—</option>{Array.from({ length: 10 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select></label> : <small>Non puoi votare il tuo contributo</small>}</div>)}
+                {!foodRatings.length && <p className="ranking-empty">I cibi compariranno qui quando il capitano li segnerà come portati.</p>}
+              </article>
+            </section>
+          );
+        })()}
         {tab === "divise" && (
           <section className="page page-enter">
             {canEdit && (
@@ -1028,6 +1104,11 @@ export default function Home() {
               )}
               {pushStatus === "enabled" && <small className="settings-status">Notifiche push attive su questo dispositivo.</small>}
             </article>
+            {canEdit && <article className="panel settings-card rating-settings">
+              <div className="settings-card-title"><span className="settings-icon"><Trophy size={21} /></span><div><p>CLASSIFICA</p><h2>Privacy dei voti</h2></div></div>
+              <p className="settings-description">Scegli se mostrare i nomi di chi ha votato e il voto dato per ogni contributo.</p>
+              <label className="privacy-switch"><span><strong>{anonymousVotes ? "Voti anonimi" : "Voti pubblici"}</strong><small>{anonymousVotes ? "I voti individuali non mostrano chi li ha dati." : "Tutti possono vedere chi ha votato e il punteggio."}</small></span><input type="checkbox" checked={anonymousVotes} onChange={(event) => setAnonymousVotes(event.target.checked)} /><i aria-hidden="true" /></label>
+            </article>}
           </section>
         )}
         {birthdayCalendar && (
@@ -1948,6 +2029,7 @@ function BirthdayCalendar({
   const now = new Date(),
     [month, setMonth] = useState(now.getMonth()),
     [year, setYear] = useState(now.getFullYear()),
+    [selectedDay, setSelectedDay] = useState<number | null>(null),
     months = [
       "Gennaio",
       "Febbraio",
@@ -1978,6 +2060,7 @@ function BirthdayCalendar({
       const next = new Date(year, month + direction, 1);
       setMonth(next.getMonth());
       setYear(next.getFullYear());
+      setSelectedDay(null);
     };
   return (
     <div className="back calendar-back" onClick={close}>
@@ -2008,7 +2091,7 @@ function BirthdayCalendar({
             <select
               aria-label="Seleziona mese"
               value={month}
-              onChange={(event) => setMonth(Number(event.target.value))}
+              onChange={(event) => { setMonth(Number(event.target.value)); setSelectedDay(null); }}
             >
               {months.map((name, index) => (
                 <option key={name} value={index}>
@@ -2019,7 +2102,7 @@ function BirthdayCalendar({
             <select
               aria-label="Seleziona anno"
               value={year}
-              onChange={(event) => setYear(Number(event.target.value))}
+              onChange={(event) => { setYear(Number(event.target.value)); setSelectedDay(null); }}
             >
               {years.map((value) => (
                 <option key={value}>{value}</option>
@@ -2047,10 +2130,21 @@ function BirthdayCalendar({
                 year === now.getFullYear();
             return (
               <div
-                className={`calendar-day${isToday ? " today" : ""}${birthdays[day] ? " has-birthday" : ""}`}
+                className={`calendar-day${isToday ? " today" : ""}${birthdays[day] ? " has-birthday" : ""}${selectedDay === day ? " selected" : ""}`}
                 key={day}
+                role="button"
+                tabIndex={0}
+                aria-expanded={selectedDay === day}
+                onClick={() => setSelectedDay(selectedDay === day ? null : day)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setSelectedDay(selectedDay === day ? null : day);
+                  }
+                }}
               >
                 <strong>{day}</strong>
+                {selectedDay === day && <div className="calendar-day-details">{birthdays[day]?.length ? birthdays[day].map((person) => <span key={person[0]}>{displayName(person)}</span>) : <span className="calendar-no-birthday">Nessun compleanno</span>}</div>}
                 {birthdays[day]?.map((person) => (
                   <span key={person[0]} title={displayName(person)}>
                     🎂 {displayName(person).split(" ")[0]}

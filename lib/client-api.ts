@@ -97,6 +97,20 @@ export async function pasteFetch(
       return response(data, data.status || 200);
     }
 
+    if (input === "/api/ratings" && method === "GET") {
+      const data = await rpc("paste_get_ratings", { p_token: token });
+      return response(data, data.status || 200);
+    }
+
+    if (input === "/api/ratings" && method === "POST") {
+      const data = await rpc("paste_vote", {
+        p_token: token,
+        p_food_key: body.foodKey,
+        p_score: body.score,
+      });
+      return response(data, data.status || 200);
+    }
+
     return response({ error: "Operazione non disponibile" }, 404);
   } catch (error) {
     return response(

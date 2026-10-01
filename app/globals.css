@@ -496,6 +496,53 @@ h3 {
 .settings-status {
   color: #3c752a;
 }
+.ranking-page { display: grid; gap: 18px; }
+.ranking-intro { padding: 25px; }
+.ranking-intro > p, .rate-foods .head p { margin: 0 0 5px; color: #8b95a5; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.ranking-intro h2 { margin: 0 0 8px; }
+.ranking-intro > span { color: #687385; }
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; }
+.podium-place { display: grid; justify-items: center; gap: 8px; padding: 18px 10px; border: 1px solid #e7eaf0; border-radius: 16px; background: #fff; text-align: center; box-shadow: 0 8px 24px #1720330a; }
+.podium-place.place-1 { min-height: 190px; padding-top: 27px; border-color: #d8c995; background: linear-gradient(180deg, #fffdf5, #fff); }
+.podium-place.place-2 { min-height: 160px; }
+.podium-place.place-3 { min-height: 145px; }
+.podium-place > b { font-size: 27px; }
+.podium-place > strong { font-size: 14px; }
+.podium-place > span { color: #6045c5; font-size: 18px; font-weight: 900; }
+.podium-place > small, .ranking-row small { color: #8992a0; }
+.ranking-list, .rate-foods { padding: 22px; }
+.ranking-list h2, .rate-foods h2 { margin: 0 0 14px; font-size: 17px; }
+.ranking-row { min-height: 61px; display: grid; grid-template-columns: 42px 38px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; border-top: 1px solid #edf0f4; }
+.ranking-row > b { color: #6045c5; }
+.ranking-row > span { font-weight: 900; }
+.ranking-empty { color: #7e8795; font-size: 14px; }
+.rate-foods .head { margin-bottom: 12px; }
+.rate-food { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 15px 0; border-top: 1px solid #edf0f4; }
+.rate-food > div { display: grid; gap: 5px; }
+.rate-food > div > small { color: #778091; }
+.rate-food > div > span { color: #6045c5; font-size: 13px; font-weight: 800; }
+.rate-food label { display: grid; gap: 5px; color: #687385; font-size: 12px; font-weight: 700; }
+.rate-food select { min-width: 84px; padding: 9px; border: 1px solid #dfe4ec; border-radius: 9px; background: #fff; font: inherit; }
+.rating-voter-list { max-width: 540px; }
+.privacy-switch { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0 0; cursor: pointer; }
+.privacy-switch > span { display: grid; gap: 4px; }
+.privacy-switch small { color: #778091; }
+.privacy-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.privacy-switch i { position: relative; flex: 0 0 46px; width: 46px; height: 26px; border-radius: 20px; background: #cbd1da; transition: background .2s ease; }
+.privacy-switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0003; transition: transform .2s ease; }
+.privacy-switch input:checked + i { background: #6849df; }
+.privacy-switch input:checked + i::after { transform: translateX(20px); }
+.privacy-switch input:focus-visible + i { outline: 3px solid #a99af0; outline-offset: 3px; }
+@media (max-width: 640px) {
+  .podium { gap: 7px; }
+  .podium-place { padding-right: 5px; padding-left: 5px; }
+  .podium-place > strong { font-size: 12px; }
+  .ranking-row { grid-template-columns: 30px 34px minmax(0, 1fr) auto; gap: 8px; }
+  .ranking-row small { grid-column: 3 / -1; margin-top: -15px; }
+  .rate-food { align-items: flex-start; gap: 10px; }
+  .rate-food > div { min-width: 0; }
+  .rate-food select { min-width: 68px; }
+}
 .role-chip {
   padding: 7px 9px;
   border-radius: 999px;
@@ -1443,6 +1490,17 @@ h3 {
   border-color: #d4d9e2;
   box-shadow: 0 7px 15px #1720330d;
 }
+.calendar-day.selected {
+  z-index: 2;
+  transform: scale(1.08);
+  border-color: #8b72ed;
+  background: #fff;
+  box-shadow: 0 12px 28px #3928792b;
+}
+.calendar-day[role="button"] { cursor: pointer; }
+.calendar-day-details { display: grid; gap: 5px; margin-top: 8px; }
+.calendar-day-details > span { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.calendar-day > .calendar-day-details > .calendar-no-birthday { background: #f0f2f5; color: #778091; font-size: 10px; font-weight: 600; }
 .calendar-day > strong {
   display: block;
   margin-bottom: 6px;
@@ -1802,7 +1860,18 @@ h3 {
   .calendar-day {
     padding: 5px 3px;
   }
-  .calendar-day > strong {
+  .calendar-day.selected {
+  z-index: 2;
+  transform: scale(1.08);
+  border-color: #8b72ed;
+  background: #fff;
+  box-shadow: 0 12px 28px #3928792b;
+}
+.calendar-day[role="button"] { cursor: pointer; }
+.calendar-day-details { display: grid; gap: 5px; margin-top: 8px; }
+.calendar-day-details > span { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.calendar-day > .calendar-day-details > .calendar-no-birthday { background: #f0f2f5; color: #778091; font-size: 10px; font-weight: 600; }
+.calendar-day > strong {
     margin: 0 0 4px 3px;
     font-size: 11px;
   }

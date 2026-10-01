@@ -25,13 +25,23 @@ create table if not exists public.paste_sessions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.paste_food_votes (
+  food_key text not null,
+  voter_name text not null,
+  score integer not null check (score between 1 and 10),
+  created_at timestamptz not null default now(),
+  primary key (food_key, voter_name)
+);
+
 alter table public.paste_config enable row level security;
 alter table public.paste_state enable row level security;
 alter table public.paste_sessions enable row level security;
+alter table public.paste_food_votes enable row level security;
 
 revoke all on public.paste_config from anon, authenticated;
 revoke all on public.paste_state from anon, authenticated;
 revoke all on public.paste_sessions from anon, authenticated;
+revoke all on public.paste_food_votes from anon, authenticated;
 
 -- Configurazione e dati iniziali vengono inseriti con il file privato
 -- paste-private-import.sql, che non deve essere pubblicato su GitHub.
@@ -301,12 +311,84 @@ begin
 end;
 $$;
 
+create or replace function public.paste_vote(p_token text, p_food_key text, p_score integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_session public.paste_sessions%rowtype;
+  v_state public.paste_state%rowtype;
+  v_food jsonb;
+  v_contributor text;
+begin
+  select * into v_session from public.paste_sessions
+   where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') and expires_at > now();
+  if not found then return jsonb_build_object('error', 'Accesso richiesto', 'status', 401); end if;
+  if p_score is null or p_score < 1 or p_score > 10 then
+    return jsonb_build_object('error', 'Il voto deve essere da 1 a 10', 'status', 400);
+  end if;
+  select * into v_state from public.paste_state where id = 1;
+  select value into v_food from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb))
+    where value->>'ratingKey' = p_food_key and value->>'status' = 'Portato' limit 1;
+  if v_food is null then return jsonb_build_object('error', 'Contributo non disponibile per il voto', 'status', 404); end if;
+  v_contributor := v_food->>'name';
+  if v_session.person_name = v_contributor then
+    return jsonb_build_object('error', 'Non puoi votare il tuo contributo', 'status', 403);
+  end if;
+  insert into public.paste_food_votes (food_key, voter_name, score)
+    values (p_food_key, v_session.person_name, p_score)
+    on conflict (food_key, voter_name) do update set score = excluded.score, created_at = now();
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+create or replace function public.paste_get_ratings(p_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_session public.paste_sessions%rowtype;
+  v_state public.paste_state%rowtype;
+  v_anonymous boolean;
+  v_ratings jsonb;
+begin
+  select * into v_session from public.paste_sessions
+   where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') and expires_at > now();
+  if not found then return jsonb_build_object('error', 'Accesso richiesto', 'status', 401); end if;
+  select * into v_state from public.paste_state where id = 1;
+  v_anonymous := coalesce((v_state.data->>'anonymousVotes')::boolean, false);
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'foodKey', food->>'ratingKey', 'contributor', food->>'name',
+    'food', coalesce(nullif(food->>'note', ''), food->>'why', 'Contributo'),
+    'date', coalesce(food->>'date', ''),
+    'average', coalesce(stats.avg_score, 0), 'count', coalesce(stats.vote_count, 0),
+    'myVote', mine.score, 'votes', coalesce(stats.votes, '[]'::jsonb)
+  ) order by coalesce(food->>'date', '') desc), '[]'::jsonb)
+  into v_ratings
+  from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb)) food
+  left join lateral (
+    select round(avg(v.score)::numeric, 2) as avg_score, count(*)::integer as vote_count,
+      jsonb_agg(jsonb_build_object('voter', case when v_anonymous then 'Anonimo' else v.voter_name end, 'score', v.score) order by v.created_at) as votes
+    from public.paste_food_votes v where v.food_key = food->>'ratingKey'
+  ) stats on true
+  left join public.paste_food_votes mine on mine.food_key = food->>'ratingKey' and mine.voter_name = v_session.person_name
+  where food->>'status' = 'Portato' and coalesce(food->>'ratingKey', '') <> '';
+  return jsonb_build_object('ratings', v_ratings, 'anonymous', v_anonymous);
+end;
+$$;
+
 revoke all on function public.paste_check_team(text) from public;
 revoke all on function public.paste_login(text, text, text) from public;
 revoke all on function public.paste_session(text) from public;
 revoke all on function public.paste_get_state(text) from public;
 revoke all on function public.paste_save_state(text, jsonb, text) from public;
 revoke all on function public.paste_logout(text) from public;
+revoke all on function public.paste_vote(text, text, integer) from public;
+revoke all on function public.paste_get_ratings(text) from public;
 
 grant execute on function public.paste_check_team(text) to anon, authenticated;
 grant execute on function public.paste_login(text, text, text) to anon, authenticated;
@@ -314,3 +396,5 @@ grant execute on function public.paste_session(text) to anon, authenticated;
 grant execute on function public.paste_get_state(text) to anon, authenticated;
 grant execute on function public.paste_save_state(text, jsonb, text) to anon, authenticated;
 grant execute on function public.paste_logout(text) to anon, authenticated;
+grant execute on function public.paste_vote(text, text, integer) to anon, authenticated;
+grant execute on function public.paste_get_ratings(text) to anon, authenticated;
