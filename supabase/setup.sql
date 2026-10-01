@@ -326,6 +326,9 @@ begin
   select * into v_session from public.paste_sessions
    where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') and expires_at > now();
   if not found then return jsonb_build_object('error', 'Accesso richiesto', 'status', 401); end if;
+  if v_session.role <> 'captain' then
+    return jsonb_build_object('error', 'Solo il capitano può votare', 'status', 403);
+  end if;
   if p_score is null or p_score < 1 or p_score > 10 then
     return jsonb_build_object('error', 'Il voto deve essere da 1 a 10', 'status', 400);
   end if;
@@ -379,7 +382,11 @@ begin
   ) stats on true
   left join public.paste_food_votes mine on mine.food_key = coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', '')) and mine.voter_name = v_session.person_name
   where entry.food->>'status' = 'Portato';
-  return jsonb_build_object('ratings', v_ratings, 'anonymous', v_anonymous);
+  return jsonb_build_object(
+    'ratings', v_ratings,
+    'anonymous', v_anonymous,
+    'leaderboardEnabled', coalesce((v_state.data->>'leaderboardEnabled')::boolean, true)
+  );
 end;
 $$;
 
