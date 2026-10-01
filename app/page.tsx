@@ -1,6 +1,6 @@
 "use client";
-import { Fragment, useEffect, useState } from "react";
-import { flushSync } from "react-dom";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { createPortal, flushSync } from "react-dom";
 import {
   CalendarDays,
   Bell,
@@ -526,6 +526,44 @@ export default function Home() {
         .includes(normalizedTeamSearch);
     })
     .sort((a, b) => Number(a.person[2] === "Allenatore") - Number(b.person[2] === "Allenatore"));
+  const singleStandings = foodRatings
+    .filter((entry) => entry.count > 0)
+    .map((entry) => {
+      const person = team.find((member) => member[0] === entry.contributor);
+      return {
+        key: entry.foodKey,
+        name: person ? displayName(person) : entry.contributor,
+        avatar: person?.[1] || "?",
+        food: entry.food,
+        date: entry.date,
+        points: entry.average,
+        votes: entry.count,
+        contributions: 1,
+      };
+    })
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "it"));
+  const generalStandings = team
+    .map((person) => {
+      const entries = foodRatings.filter((entry) => entry.contributor === person[0] && entry.count > 0);
+      return {
+        key: person[0],
+        name: displayName(person),
+        avatar: person[1],
+        food: "",
+        date: "",
+        points: entries.reduce((sum, entry) => sum + Math.round(entry.average * 10), 0),
+        votes: entries.reduce((sum, entry) => sum + entry.count, 0),
+        contributions: entries.length,
+      };
+    })
+    .filter((entry) => entry.contributions > 0)
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "it"));
+  const rankingStandings = rankingMode === "single" ? singleStandings : generalStandings;
+  const rankingPodium = [
+    rankingStandings[1] && { entry: rankingStandings[1], place: 2 },
+    rankingStandings[0] && { entry: rankingStandings[0], place: 1 },
+    rankingStandings[2] && { entry: rankingStandings[2], place: 3 },
+  ].filter((item): item is { entry: (typeof rankingStandings)[number]; place: number } => Boolean(item));
   return (
     <main className="app">
       <aside className={mobileMenu ? "mobile-open" : ""}>
@@ -672,26 +710,32 @@ export default function Home() {
               />
             </div>
             <div className="twocol page-enter page-enter-delay-1">
-              <article className="panel">
+              {leaderboardEnabled && <article className="panel dashboard-ranking">
                 <div className="head">
-                  <div>
-                    <h2>Chi porta da mangiare</h2>
-                  </div>
-                  <button onClick={() => setTab("paste")}>→</button>
+                  <div><p>CLASSIFICA</p><h2>Podio della squadra</h2></div>
+                  <button type="button" onClick={() => setTab("classifica")}>Apri</button>
                 </div>
-                {foods
-                  .filter((f) => f.status === "Da portare")
-                  .map((f) => (
-                    <FoodRow
-                      key={`${f.name}-${foods.indexOf(f)}`}
-                      f={f}
-                      i={foods.indexOf(f)}
-                      mark={mark}
-                      canEdit={canEdit}
-                      moving={deliveringFood === f.name}
-                    />
-                  ))}
-              </article>
+                <div className="ranking-switcher" role="tablist" aria-label="Modalità classifica in anteprima">
+                  <button type="button" role="tab" aria-selected={rankingMode === "single"} className={rankingMode === "single" ? "active" : ""} onClick={() => setRankingMode("single")}>Singola</button>
+                  <button type="button" role="tab" aria-selected={rankingMode === "general"} className={rankingMode === "general" ? "active" : ""} onClick={() => setRankingMode("general")}>Generale</button>
+                </div>
+                {rankingStandings.length > 0 ? (
+                  <div className="ranking-podium ranking-podium-preview" aria-label="Anteprima podio">
+                    {rankingPodium.map(({ entry, place }) => (
+                      <div className={`ranking-podium-column place-${place}`} key={entry.key}>
+                        <div className="ranking-contender">
+                          <span className="ranking-medal" aria-label={`${place}° posto`}>{place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}</span>
+                          <Avatar x={entry.avatar} />
+                          <strong>{entry.name}</strong>
+                          {rankingMode === "single" && <small>{entry.food}</small>}
+                          <b>{rankingMode === "single" ? `${entry.points.toFixed(1)} / 10` : `${entry.points} pt`}</b>
+                        </div>
+                        <div className="ranking-podium-step"><span>{place}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="ranking-empty">Il podio apparirà dopo i primi voti.</p>}
+              </article>}
               <article className="wash">
                 <div className="shirt">
                   <Shirt size={34} />
@@ -840,44 +884,8 @@ export default function Home() {
           </section>
         )}
         {leaderboardEnabled && tab === "classifica" && (() => {
-          const singleStandings = foodRatings
-            .filter((entry) => entry.count > 0)
-            .map((entry) => {
-              const person = team.find((member) => member[0] === entry.contributor);
-              return {
-                key: entry.foodKey,
-                name: person ? displayName(person) : entry.contributor,
-                avatar: person?.[1] || "?",
-                food: entry.food,
-                date: entry.date,
-                points: entry.average,
-                votes: entry.count,
-                contributions: 1,
-              };
-            })
-            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "it"));
-          const generalStandings = team
-            .map((person) => {
-              const entries = foodRatings.filter((entry) => entry.contributor === person[0] && entry.count > 0);
-              return {
-                key: person[0],
-                name: displayName(person),
-                avatar: person[1],
-                food: "",
-                date: "",
-                points: entries.reduce((sum, entry) => sum + Math.round(entry.average * 10), 0),
-                votes: entries.reduce((sum, entry) => sum + entry.count, 0),
-                contributions: entries.length,
-              };
-            })
-            .filter((entry) => entry.contributions > 0)
-            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "it"));
-          const standings = rankingMode === "single" ? singleStandings : generalStandings;
-          const podium = [
-            standings[1] && { entry: standings[1], place: 2 },
-            standings[0] && { entry: standings[0], place: 1 },
-            standings[2] && { entry: standings[2], place: 3 },
-          ].filter((item): item is { entry: (typeof standings)[number]; place: number } => Boolean(item));
+          const standings = rankingStandings,
+            podium = rankingPodium;
           return (
             <section className="page page-enter ranking-page">
               <div className="ranking-switcher" role="tablist" aria-label="Modalità classifica">
@@ -1691,7 +1699,7 @@ function FoodRow({
   voteBusy?: boolean;
 }) {
   const [ratingOpen, setRatingOpen] = useState(false),
-    [ratingChoice, setRatingChoice] = useState(rating?.myVote || 0),
+    ratingSelect = useRef<HTMLSelectElement>(null),
     due = f.status === "Da portare",
     open = () => {
       const layer = document.createElement("div");
@@ -1733,20 +1741,21 @@ function FoodRow({
         <div className="food-name-row">
           <strong>{f.displayName || f.name}</strong>
           {!due && onVote && allowVote && (
-            <button className="food-vote-link" type="button" onClick={() => { setRatingChoice(rating?.myVote || 0); setRatingOpen((open) => !open); }}>
+          <button className="food-vote-link" type="button" onClick={() => setRatingOpen((open) => !open)}>
               {rating?.myVote ? `Voto ${rating.myVote}/10 · Modifica` : "Vota"}
             </button>
           )}
         </div>
-        {!due && ratingOpen && onVote && allowVote && (
+        {!due && ratingOpen && onVote && allowVote && createPortal(
           <div className="back food-vote-back" onClick={() => setRatingOpen(false)}>
             <form
               className="food-vote-dialog"
               onClick={(event) => event.stopPropagation()}
               onSubmit={(event) => {
                 event.preventDefault();
-                if (ratingChoice) {
-                  onVote(ratingChoice);
+                const selectedRating = Number(ratingSelect.current?.value);
+                if (selectedRating >= 1 && selectedRating <= 10) {
+                  onVote(selectedRating);
                   setRatingOpen(false);
                 }
               }}
@@ -1756,7 +1765,7 @@ function FoodRow({
               <span>Seleziona un punteggio da 1 a 10.</span>
               <label>
                 Il tuo voto
-                <select autoFocus required value={ratingChoice || ""} onChange={(event) => setRatingChoice(Number(event.target.value))}>
+                <select ref={ratingSelect} required defaultValue={rating?.myVote || ""}>
                   <option value="">Seleziona un voto</option>
                   {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
                     <option key={score} value={score}>{score}</option>
@@ -1765,10 +1774,11 @@ function FoodRow({
               </label>
               <div className="food-vote-dialog-actions">
                 <button type="button" onClick={() => setRatingOpen(false)}>Annulla</button>
-                <button type="submit" disabled={!ratingChoice || voteBusy}>{voteBusy ? "Salvo…" : "Conferma voto"}</button>
+                <button type="submit" disabled={voteBusy}>{voteBusy ? "Salvo…" : "Conferma voto"}</button>
               </div>
             </form>
-          </div>
+          </div>,
+          document.body,
         )}
         <span>
           {f.why} · {f.date}

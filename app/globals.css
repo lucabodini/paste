@@ -525,6 +525,14 @@ h3 {
 .ranking-podium-column.place-1 .ranking-podium-step { height: 126px; border-color: #dbc87e; color: #8b6d15; background: linear-gradient(145deg, #ffedaa, #e7c75d); }
 .ranking-podium-column.place-2 .ranking-podium-step { height: 96px; }
 .ranking-podium-column.place-3 .ranking-podium-step { height: 70px; }
+.dashboard-ranking { display: flex; min-width: 0; flex-direction: column; gap: 12px; padding: 19px; }
+.dashboard-ranking .head { margin: 0; }
+.dashboard-ranking .head p { margin: 0 0 4px; color: #8b95a5; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.dashboard-ranking .ranking-podium-preview { flex: 1; min-height: 230px; padding: 14px 10px 0; }
+.dashboard-ranking .ranking-contender { min-height: 125px; padding-bottom: 9px; }
+.dashboard-ranking .ranking-podium-column.place-1 .ranking-podium-step { height: 85px; }
+.dashboard-ranking .ranking-podium-column.place-2 .ranking-podium-step { height: 64px; }
+.dashboard-ranking .ranking-podium-column.place-3 .ranking-podium-step { height: 48px; }
 .ranking-list, .rate-foods { padding: 22px; }
 .ranking-list h2, .rate-foods h2 { margin: 0 0 14px; font-size: 17px; }
 .ranking-row { min-height: 61px; display: grid; grid-template-columns: 42px 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; border-top: 1px solid #edf0f4; }
