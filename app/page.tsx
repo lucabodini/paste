@@ -43,6 +43,8 @@ type Food = {
   ratingKey?: string;
 };
 type FoodRating = { foodKey: string; contributor: string; food: string; date: string; average: number; count: number; myVote: number | null; votes: { voter: string; score: number }[] };
+const legacyFoodRatingKey = (food: Food, index: number) =>
+  `legacy:${index}:${food.name}:${food.date}`;
 type Person = [
   name: string,
   initials: string,
@@ -244,7 +246,12 @@ export default function Home() {
       }
       if (!active) return;
       if (Array.isArray(data.team)) setTeam(data.team);
-      if (Array.isArray(data.foods)) setFoods(data.foods);
+      if (Array.isArray(data.foods))
+        setFoods(data.foods.map((food: Food, index: number) =>
+          food.status === "Portato" && !food.ratingKey
+            ? { ...food, ratingKey: legacyFoodRatingKey(food, index) }
+            : food,
+        ));
       if (Array.isArray(data.kits)) setKits(data.kits);
       setAnonymousVotes(Boolean(data.anonymousVotes));
       if (typeof data.teamName === "string" && data.teamName.trim())
@@ -812,6 +819,10 @@ export default function Home() {
                       canEdit={canEdit}
                       moving={deliveringFood === f.name}
                       edit={() => setEditFoodIndex(foods.indexOf(f))}
+                      rating={f.ratingKey ? foodRatings.find((item) => item.foodKey === f.ratingKey) : undefined}
+                      allowVote={f.name !== auth.personName}
+                      onVote={f.ratingKey ? (score) => submitFoodRating(f.ratingKey!, score) : undefined}
+                      voteBusy={Boolean(f.ratingKey && ratingBusy === f.ratingKey)}
                     />
                   ))}
               </article>
@@ -836,7 +847,7 @@ export default function Home() {
             <section className="page page-enter ranking-page">
               <article className="panel ranking-intro">
                 <p>TERZO TEMPO</p><h2>Classifica dei piatti</h2>
-                <span>Vota da 1 a 10 quello che hanno portato gli altri. Il tuo contributo è escluso dai tuoi voti.</span>
+                <span>Vota i contributi dalla sezione Paste. Il tuo contributo è escluso dai tuoi voti.</span>
               </article>
               {standings.length > 0 && <div className="podium">{podium.map(({ entry, place }) => {
                 return <article className={`podium-place place-${place}`} key={entry.person[0]}><b>{place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}</b><Avatar x={entry.person[1]} /><strong>{displayName(entry.person)}</strong><span>{entry.average.toFixed(1)} / 10</span><small>{entry.votes} voti</small></article>;
@@ -1612,6 +1623,10 @@ function FoodRow({
   canEdit,
   edit,
   moving = false,
+  rating,
+  allowVote = true,
+  onVote,
+  voteBusy = false,
 }: {
   f: Food;
   i: number;
@@ -1619,8 +1634,14 @@ function FoodRow({
   canEdit: boolean;
   edit?: () => void;
   moving?: boolean;
+  rating?: FoodRating;
+  allowVote?: boolean;
+  onVote?: (score: number) => void;
+  voteBusy?: boolean;
 }) {
-  const due = f.status === "Da portare",
+  const [ratingOpen, setRatingOpen] = useState(false),
+    [ratingChoice, setRatingChoice] = useState(rating?.myVote || 0),
+    due = f.status === "Da portare",
     open = () => {
       const layer = document.createElement("div");
       layer.style.cssText =
@@ -1658,7 +1679,25 @@ function FoodRow({
     >
       <Avatar x={f.initials} />
       <div>
-        <strong>{f.displayName || f.name}</strong>
+        <div className="food-name-row">
+          <strong>{f.displayName || f.name}</strong>
+          {!due && onVote && allowVote && (
+            <button className="food-vote-link" type="button" onClick={() => { setRatingChoice(rating?.myVote || 0); setRatingOpen((open) => !open); }}>
+              {rating?.myVote ? `Voto ${rating.myVote}/10 · Modifica` : "Vota"}
+            </button>
+          )}
+        </div>
+        {!due && ratingOpen && onVote && allowVote && (
+          <form className="food-vote-form" onSubmit={(event) => { event.preventDefault(); if (ratingChoice) { onVote(ratingChoice); setRatingOpen(false); } }}>
+            <span>Il tuo voto</span>
+            <div className="food-vote-options" role="group" aria-label="Seleziona un voto da 1 a 10">
+              {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
+                <button key={score} type="button" className={ratingChoice === score ? "chosen" : ""} aria-pressed={ratingChoice === score} onClick={() => setRatingChoice(score)}>{score}</button>
+              ))}
+            </div>
+            <button className="food-vote-submit" type="submit" disabled={!ratingChoice || voteBusy}>{voteBusy ? "Salvo…" : "Conferma voto"}</button>
+          </form>
+        )}
         <span>
           {f.why} · {f.date}
         </span>
@@ -2144,7 +2183,17 @@ function BirthdayCalendar({
                 }}
               >
                 <strong>{day}</strong>
-                {selectedDay === day && <div className="calendar-day-details">{birthdays[day]?.length ? birthdays[day].map((person) => <span key={person[0]}>{displayName(person)}</span>) : <span className="calendar-no-birthday">Nessun compleanno</span>}</div>}
+                {selectedDay === day ? (
+                  <div className="calendar-day-details">
+                    {birthdays[day]?.length ? birthdays[day].map((person) => (
+                      <span key={person[0]} title={displayName(person)}>{displayName(person)}</span>
+                    )) : <span className="calendar-no-birthday">Nessun compleanno</span>}
+                  </div>
+                ) : (
+                  birthdays[day]?.map((person) => (
+                    <span key={person[0]} title={displayName(person)}>{displayName(person).split(" ")[0]}</span>
+                  ))
+                )}
                 {birthdays[day]?.map((person) => (
                   <span key={person[0]} title={displayName(person)}>
                     🎂 {displayName(person).split(" ")[0]}

@@ -330,8 +330,10 @@ begin
     return jsonb_build_object('error', 'Il voto deve essere da 1 a 10', 'status', 400);
   end if;
   select * into v_state from public.paste_state where id = 1;
-  select value into v_food from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb))
-    where value->>'ratingKey' = p_food_key and value->>'status' = 'Portato' limit 1;
+  select entry.food into v_food
+  from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb)) with ordinality as entry(food, idx)
+  where coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', '')) = p_food_key
+    and entry.food->>'status' = 'Portato' limit 1;
   if v_food is null then return jsonb_build_object('error', 'Contributo non disponibile per il voto', 'status', 404); end if;
   v_contributor := v_food->>'name';
   if v_session.person_name = v_contributor then
@@ -362,21 +364,21 @@ begin
   select * into v_state from public.paste_state where id = 1;
   v_anonymous := coalesce((v_state.data->>'anonymousVotes')::boolean, false);
   select coalesce(jsonb_agg(jsonb_build_object(
-    'foodKey', food->>'ratingKey', 'contributor', food->>'name',
-    'food', coalesce(nullif(food->>'note', ''), food->>'why', 'Contributo'),
-    'date', coalesce(food->>'date', ''),
+    'foodKey', coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', '')), 'contributor', entry.food->>'name',
+    'food', coalesce(nullif(entry.food->>'note', ''), entry.food->>'why', 'Contributo'),
+    'date', coalesce(entry.food->>'date', ''),
     'average', coalesce(stats.avg_score, 0), 'count', coalesce(stats.vote_count, 0),
     'myVote', mine.score, 'votes', coalesce(stats.votes, '[]'::jsonb)
   ) order by coalesce(food->>'date', '') desc), '[]'::jsonb)
   into v_ratings
-  from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb)) food
+  from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb)) with ordinality as entry(food, idx)
   left join lateral (
     select round(avg(v.score)::numeric, 2) as avg_score, count(*)::integer as vote_count,
       jsonb_agg(jsonb_build_object('voter', case when v_anonymous then 'Anonimo' else v.voter_name end, 'score', v.score) order by v.created_at) as votes
-    from public.paste_food_votes v where v.food_key = food->>'ratingKey'
+    from public.paste_food_votes v where v.food_key = coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', ''))
   ) stats on true
-  left join public.paste_food_votes mine on mine.food_key = food->>'ratingKey' and mine.voter_name = v_session.person_name
-  where food->>'status' = 'Portato' and coalesce(food->>'ratingKey', '') <> '';
+  left join public.paste_food_votes mine on mine.food_key = coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', '')) and mine.voter_name = v_session.person_name
+  where entry.food->>'status' = 'Portato';
   return jsonb_build_object('ratings', v_ratings, 'anonymous', v_anonymous);
 end;
 $$;
