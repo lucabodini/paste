@@ -828,13 +828,16 @@ h3 {
 .food-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .food-name-row strong { min-width: 0; }
 .food-vote-link { padding: 3px 8px; border: 1px solid #dcd5fa; border-radius: 7px; color: #6045c5; background: #f6f3ff; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
-.food-vote-form { display: grid; gap: 8px; padding: 10px; border: 1px solid #e5e0f8; border-radius: 10px; background: #faf9ff; }
-.food-vote-form > span { font-size: 11px; font-weight: 800; color: #687385; }
-.food-vote-options { display: flex; flex-wrap: wrap; gap: 4px; }
-.food-vote-options button { width: 29px; height: 29px; padding: 0; border: 1px solid #dfe4ec; border-radius: 7px; color: #596577; background: #fff; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
-.food-vote-options button.chosen { border-color: #6849df; color: #fff; background: #6849df; }
-.food-vote-submit { justify-self: start; padding: 7px 10px; border: 0; border-radius: 7px; color: #fff; background: #6045c5; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
-.food-vote-submit:disabled { opacity: .55; cursor: default; }
+.food-vote-back { z-index: 50; background: #17203355; backdrop-filter: blur(14px) saturate(150%); }
+.back form.food-vote-dialog { border: 1px solid #ffffffc7; background: #fffffff0; box-shadow: 0 24px 80px #080d1f45; backdrop-filter: blur(24px) saturate(180%); }
+.food-vote-dialog > p { margin: 0; color: #8b95a5; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.food-vote-dialog > h2 { margin: -8px 0 0; padding-right: 25px; font-size: 21px; }
+.food-vote-dialog > span { color: #687385; font-size: 14px; }
+.food-vote-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 4px; }
+.back form.food-vote-dialog .food-vote-dialog-actions > button { min-height: 40px; justify-content: center; border: 0; border-radius: 10px; padding: 0 14px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.food-vote-dialog-actions > button:first-child { color: #485264; background: #eef1f5; }
+.food-vote-dialog-actions > button:last-child { color: #fff; background: linear-gradient(135deg, #7658ed, #5435ca); }
+.food-vote-dialog-actions > button:disabled { opacity: .5; cursor: default; }
 .food span,
 .food em,
 .top > div > span,

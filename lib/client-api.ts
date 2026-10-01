@@ -104,9 +104,9 @@ export async function pasteFetch(
 
     if (input === "/api/ratings" && method === "POST") {
       const data = await rpc("paste_vote", {
-        p_token: token,
         p_food_key: body.foodKey,
         p_score: body.score,
+        p_token: token,
       });
       return response(data, data.status || 200);
     }

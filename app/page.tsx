@@ -1704,15 +1704,36 @@ function FoodRow({
           )}
         </div>
         {!due && ratingOpen && onVote && allowVote && (
-          <form className="food-vote-form" onSubmit={(event) => { event.preventDefault(); if (ratingChoice) { onVote(ratingChoice); setRatingOpen(false); } }}>
-            <span>Il tuo voto</span>
-            <div className="food-vote-options" role="group" aria-label="Seleziona un voto da 1 a 10">
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
-                <button key={score} type="button" className={ratingChoice === score ? "chosen" : ""} aria-pressed={ratingChoice === score} onClick={() => setRatingChoice(score)}>{score}</button>
-              ))}
-            </div>
-            <button className="food-vote-submit" type="submit" disabled={!ratingChoice || voteBusy}>{voteBusy ? "Salvo…" : "Conferma voto"}</button>
-          </form>
+          <div className="back food-vote-back" onClick={() => setRatingOpen(false)}>
+            <form
+              className="food-vote-dialog"
+              onClick={(event) => event.stopPropagation()}
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (ratingChoice) {
+                  onVote(ratingChoice);
+                  setRatingOpen(false);
+                }
+              }}
+            >
+              <p>VOTO CONTRIBUTO</p>
+              <h2>{f.displayName || f.name}</h2>
+              <span>Seleziona un punteggio da 1 a 10.</span>
+              <label>
+                Il tuo voto
+                <select autoFocus required value={ratingChoice || ""} onChange={(event) => setRatingChoice(Number(event.target.value))}>
+                  <option value="">Seleziona un voto</option>
+                  {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
+                    <option key={score} value={score}>{score}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="food-vote-dialog-actions">
+                <button type="button" onClick={() => setRatingOpen(false)}>Annulla</button>
+                <button type="submit" disabled={!ratingChoice || voteBusy}>{voteBusy ? "Salvo…" : "Conferma voto"}</button>
+              </div>
+            </form>
+          </div>
         )}
         <span>
           {f.why} · {f.date}
@@ -2108,7 +2129,11 @@ function BirthdayCalendar({
     leadingDays = (new Date(year, month, 1).getDay() + 6) % 7,
     birthdays = team.reduce<Record<number, Person[]>>((days, person) => {
       const [, birthMonth, birthDay] = person[3].split("-").map(Number);
-      if (birthMonth === month + 1) (days[birthDay] ||= []).push(person);
+      if (birthMonth === month + 1) {
+        const birthdayGroup = (days[birthDay] ||= []);
+        if (!birthdayGroup.some((birthdayPerson) => birthdayPerson[0] === person[0]))
+          birthdayGroup.push(person);
+      }
       return days;
     }, {}),
     changeMonth = (direction: number) => {
@@ -2210,7 +2235,7 @@ function BirthdayCalendar({
                     <span key={person[0]} title={displayName(person)}>{displayName(person).split(" ")[0]}</span>
                   ))
                 )}
-                {birthdays[day]?.map((person) => (
+                {false && birthdays[day]?.map((person) => (
                   <span key={person[0]} title={displayName(person)}>
                     🎂 {displayName(person).split(" ")[0]}
                   </span>

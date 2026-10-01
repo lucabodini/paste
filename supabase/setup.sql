@@ -311,7 +311,10 @@ begin
 end;
 $$;
 
-create or replace function public.paste_vote(p_token text, p_food_key text, p_score integer)
+drop function if exists public.paste_vote(text, text, integer);
+drop function if exists public.paste_vote(text, integer, text);
+
+create function public.paste_vote(p_food_key text, p_score integer, p_token text)
 returns jsonb
 language plpgsql
 security definer
@@ -396,7 +399,7 @@ revoke all on function public.paste_session(text) from public;
 revoke all on function public.paste_get_state(text) from public;
 revoke all on function public.paste_save_state(text, jsonb, text) from public;
 revoke all on function public.paste_logout(text) from public;
-revoke all on function public.paste_vote(text, text, integer) from public;
+revoke all on function public.paste_vote(text, integer, text) from public;
 revoke all on function public.paste_get_ratings(text) from public;
 
 grant execute on function public.paste_check_team(text) to anon, authenticated;
@@ -405,5 +408,7 @@ grant execute on function public.paste_session(text) to anon, authenticated;
 grant execute on function public.paste_get_state(text) to anon, authenticated;
 grant execute on function public.paste_save_state(text, jsonb, text) to anon, authenticated;
 grant execute on function public.paste_logout(text) to anon, authenticated;
-grant execute on function public.paste_vote(text, text, integer) to anon, authenticated;
+grant execute on function public.paste_vote(text, integer, text) to anon, authenticated;
 grant execute on function public.paste_get_ratings(text) to anon, authenticated;
+
+notify pgrst, 'reload schema';
