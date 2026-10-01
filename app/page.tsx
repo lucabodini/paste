@@ -141,6 +141,7 @@ export default function Home() {
     [foods, setFoods] = useState(initial),
     [anonymousVotes, setAnonymousVotes] = useState(false),
     [leaderboardEnabled, setLeaderboardEnabled] = useState(true),
+    [rankingMode, setRankingMode] = useState<"single" | "general">("single"),
     [foodRatings, setFoodRatings] = useState<FoodRating[]>([]),
     [ratingBusy, setRatingBusy] = useState<string | null>(null),
     [kits, setKits] = useState(() =>
@@ -839,14 +840,39 @@ export default function Home() {
           </section>
         )}
         {leaderboardEnabled && tab === "classifica" && (() => {
-          const standings = team
-            .map((person) => {
-              const entries = foodRatings.filter((rating) => rating.contributor === person[0]);
-              const votes = entries.reduce((sum, entry) => sum + entry.count, 0);
-              return { person, entries, votes, average: votes ? entries.reduce((sum, entry) => sum + entry.average * entry.count, 0) / votes : 0 };
+          const singleStandings = foodRatings
+            .filter((entry) => entry.count > 0)
+            .map((entry) => {
+              const person = team.find((member) => member[0] === entry.contributor);
+              return {
+                key: entry.foodKey,
+                name: person ? displayName(person) : entry.contributor,
+                avatar: person?.[1] || "?",
+                food: entry.food,
+                date: entry.date,
+                points: Math.round(entry.average * 10),
+                votes: entry.count,
+                contributions: 1,
+              };
             })
-            .filter((entry) => entry.votes > 0)
-            .sort((a, b) => b.average - a.average || b.votes - a.votes);
+            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "it"));
+          const generalStandings = team
+            .map((person) => {
+              const entries = foodRatings.filter((entry) => entry.contributor === person[0] && entry.count > 0);
+              return {
+                key: person[0],
+                name: displayName(person),
+                avatar: person[1],
+                food: "",
+                date: "",
+                points: entries.reduce((sum, entry) => sum + Math.round(entry.average * 10), 0),
+                votes: entries.reduce((sum, entry) => sum + entry.count, 0),
+                contributions: entries.length,
+              };
+            })
+            .filter((entry) => entry.contributions > 0)
+            .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "it"));
+          const standings = rankingMode === "single" ? singleStandings : generalStandings;
           const podium = [
             standings[1] && { entry: standings[1], place: 2 },
             standings[0] && { entry: standings[0], place: 1 },
@@ -856,18 +882,31 @@ export default function Home() {
             <section className="page page-enter ranking-page">
               <article className="panel ranking-intro">
                 <p>TERZO TEMPO</p><h2>Classifica dei piatti</h2>
-                <span>Vota i contributi dalla sezione Paste. Il tuo contributo è escluso dai tuoi voti.</span>
+                <span>Ogni voto vale 10 punti. La classifica generale somma i punti di ogni contributo.</span>
               </article>
-              {standings.length > 0 && <div className="podium">{podium.map(({ entry, place }) => {
-                return <article className={`podium-place place-${place}`} key={entry.person[0]}><b>{place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}</b><Avatar x={entry.person[1]} /><strong>{displayName(entry.person)}</strong><span>{entry.average.toFixed(1)} / 10</span><small>{entry.votes} voti</small></article>;
-              })}</div>}
+              <div className="ranking-switcher" role="tablist" aria-label="Modalità classifica">
+                <button type="button" role="tab" aria-selected={rankingMode === "single"} className={rankingMode === "single" ? "active" : ""} onClick={() => setRankingMode("single")}>Classifica singola</button>
+                <button type="button" role="tab" aria-selected={rankingMode === "general"} className={rankingMode === "general" ? "active" : ""} onClick={() => setRankingMode("general")}>Classifica generale</button>
+              </div>
+              {standings.length > 0 && <div className="ranking-podium" aria-label="Podio dei primi tre">{podium.map(({ entry, place }) => (
+                <div className={`ranking-podium-column place-${place}`} key={entry.key}>
+                  <div className="ranking-contender">
+                    <span className="ranking-medal" aria-label={`${place}° posto`}>{place === 1 ? "🥇" : place === 2 ? "🥈" : "🥉"}</span>
+                    <Avatar x={entry.avatar} />
+                    <strong>{entry.name}</strong>
+                    {rankingMode === "single" && <small>{entry.food}</small>}
+                    <b>{entry.points} punti</b>
+                  </div>
+                  <div className="ranking-podium-step"><span>{place}</span></div>
+                </div>
+              ))}</div>}
               <article className="panel ranking-list">
-                <h2>Classifica aggiornata</h2>
-                {standings.map((entry, index) => <div className="ranking-row" key={entry.person[0]}><b>#{index + 1}</b><Avatar x={entry.person[1]} /><strong>{displayName(entry.person)}</strong><span>{entry.average.toFixed(1)} / 10</span><small>{entry.votes} voti</small></div>)}
+                <h2>{rankingMode === "single" ? "Ogni contributo" : "Punti totali per persona"}</h2>
+                {standings.map((entry, index) => <div className="ranking-row" key={entry.key}><b>#{index + 1}</b><Avatar x={entry.avatar} /><div className="ranking-row-name"><strong>{entry.name}</strong><small>{rankingMode === "single" ? `${entry.food} · ${entry.date} · ${entry.votes} voti` : `${entry.contributions} contributi · ${entry.votes} voti ricevuti`}</small></div><span>{entry.points} pt</span></div>)}
                 {!standings.length && <p className="ranking-empty">La classifica si aggiornerà dopo i primi voti.</p>}
               </article>
               <article className="panel rate-foods"><div className="head"><div><p>ASSAGGI E VOTI</p><h2>Vota cosa hanno portato</h2></div></div>
-                {foodRatings.map((rating) => <div className="rate-food" key={rating.foodKey}><div><strong>{rating.food}</strong><small>{rating.contributor} · {rating.date}</small><span>{rating.count ? `${rating.average.toFixed(1)} / 10 · ${rating.count} voti` : "Ancora nessun voto"}</span>{rating.votes.length > 0 && <small className="rating-voter-list">{rating.votes.map((vote) => `${vote.voter}: ${vote.score}`).join(" · ")}</small>}</div>{canEdit && rating.contributor !== auth.personName ? <label>Il tuo voto<select aria-label={`Voto per ${rating.food}`} value={rating.myVote ?? ""} disabled={ratingBusy === rating.foodKey} onChange={(event) => event.target.value && submitFoodRating(rating.foodKey, Number(event.target.value))}><option value="">—</option>{Array.from({ length: 10 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select></label> : null}</div>)}
+                {foodRatings.map((rating) => <div className="rate-food" key={rating.foodKey}><div><strong>{rating.food}</strong><small>{rating.contributor} · {rating.date}</small><span>{rating.count ? `${Math.round(rating.average * 10)} punti · ${rating.count} voti` : "Ancora nessun voto"}</span>{rating.votes.length > 0 && <small className="rating-voter-list">{rating.votes.map((vote) => `${vote.voter}: ${vote.score}`).join(" · ")}</small>}</div></div>)}
                 {!foodRatings.length && <p className="ranking-empty">I cibi compariranno qui quando il capitano li segnerà come portati.</p>}
               </article>
             </section>
@@ -2235,11 +2274,6 @@ function BirthdayCalendar({
                     <span key={person[0]} title={displayName(person)}>{displayName(person).split(" ")[0]}</span>
                   ))
                 )}
-                {false && birthdays[day]?.map((person) => (
-                  <span key={person[0]} title={displayName(person)}>
-                    🎂 {displayName(person).split(" ")[0]}
-                  </span>
-                ))}
               </div>
             );
           })}
