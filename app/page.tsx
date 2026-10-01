@@ -850,7 +850,7 @@ export default function Home() {
                 avatar: person?.[1] || "?",
                 food: entry.food,
                 date: entry.date,
-                points: Math.round(entry.average * 10),
+                points: entry.average,
                 votes: entry.count,
                 contributions: 1,
               };
@@ -880,10 +880,6 @@ export default function Home() {
           ].filter((item): item is { entry: (typeof standings)[number]; place: number } => Boolean(item));
           return (
             <section className="page page-enter ranking-page">
-              <article className="panel ranking-intro">
-                <p>TERZO TEMPO</p><h2>Classifica dei piatti</h2>
-                <span>Ogni voto vale 10 punti. La classifica generale somma i punti di ogni contributo.</span>
-              </article>
               <div className="ranking-switcher" role="tablist" aria-label="Modalità classifica">
                 <button type="button" role="tab" aria-selected={rankingMode === "single"} className={rankingMode === "single" ? "active" : ""} onClick={() => setRankingMode("single")}>Classifica singola</button>
                 <button type="button" role="tab" aria-selected={rankingMode === "general"} className={rankingMode === "general" ? "active" : ""} onClick={() => setRankingMode("general")}>Classifica generale</button>
@@ -895,18 +891,18 @@ export default function Home() {
                     <Avatar x={entry.avatar} />
                     <strong>{entry.name}</strong>
                     {rankingMode === "single" && <small>{entry.food}</small>}
-                    <b>{entry.points} punti</b>
+                    <b>{rankingMode === "single" ? `${entry.points.toFixed(1)} / 10` : `${entry.points} punti`}</b>
                   </div>
                   <div className="ranking-podium-step"><span>{place}</span></div>
                 </div>
               ))}</div>}
               <article className="panel ranking-list">
                 <h2>{rankingMode === "single" ? "Ogni contributo" : "Punti totali per persona"}</h2>
-                {standings.map((entry, index) => <div className="ranking-row" key={entry.key}><b>#{index + 1}</b><Avatar x={entry.avatar} /><div className="ranking-row-name"><strong>{entry.name}</strong><small>{rankingMode === "single" ? `${entry.food} · ${entry.date} · ${entry.votes} voti` : `${entry.contributions} contributi · ${entry.votes} voti ricevuti`}</small></div><span>{entry.points} pt</span></div>)}
+                {standings.map((entry, index) => <div className="ranking-row" key={entry.key}><b>#{index + 1}</b><Avatar x={entry.avatar} /><div className="ranking-row-name"><strong>{entry.name}</strong><small>{rankingMode === "single" ? `${entry.food} · ${entry.date} · ${entry.votes} voti` : `${entry.contributions} contributi · ${entry.votes} voti ricevuti`}</small></div><span>{rankingMode === "single" ? `${entry.points.toFixed(1)} / 10` : `${entry.points} pt`}</span></div>)}
                 {!standings.length && <p className="ranking-empty">La classifica si aggiornerà dopo i primi voti.</p>}
               </article>
               <article className="panel rate-foods"><div className="head"><div><p>ASSAGGI E VOTI</p><h2>Vota cosa hanno portato</h2></div></div>
-                {foodRatings.map((rating) => <div className="rate-food" key={rating.foodKey}><div><strong>{rating.food}</strong><small>{rating.contributor} · {rating.date}</small><span>{rating.count ? `${Math.round(rating.average * 10)} punti · ${rating.count} voti` : "Ancora nessun voto"}</span>{rating.votes.length > 0 && <small className="rating-voter-list">{rating.votes.map((vote) => `${vote.voter}: ${vote.score}`).join(" · ")}</small>}</div></div>)}
+                {foodRatings.map((rating) => <div className="rate-food" key={rating.foodKey}><div><strong>{rating.food}</strong><small>{rating.contributor} · {rating.date}</small><span>{rating.count ? `${rating.average.toFixed(1)} / 10 · ${rating.count} voti` : "Ancora nessun voto"}</span>{rating.votes.length > 0 && <small className="rating-voter-list">{rating.votes.map((vote) => `${vote.voter}: ${vote.score}`).join(" · ")}</small>}</div></div>)}
                 {!foodRatings.length && <p className="ranking-empty">I cibi compariranno qui quando il capitano li segnerà come portati.</p>}
               </article>
             </section>
