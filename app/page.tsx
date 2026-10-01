@@ -713,7 +713,7 @@ export default function Home() {
               {leaderboardEnabled && <article className="panel dashboard-ranking">
                 <div className="head">
                   <div><p>CLASSIFICA</p><h2>Podio della squadra</h2></div>
-                  <button type="button" onClick={() => setTab("classifica")}>Apri</button>
+                  <button className="ranking-open-icon" type="button" aria-label="Apri classifica" onClick={() => setTab("classifica")}><Trophy size={19} /></button>
                 </div>
                 <div className="ranking-switcher" role="tablist" aria-label="Modalità classifica in anteprima">
                   <button type="button" role="tab" aria-selected={rankingMode === "single"} className={rankingMode === "single" ? "active" : ""} onClick={() => setRankingMode("single")}>Singola</button>

@@ -528,6 +528,9 @@ h3 {
 .dashboard-ranking { display: flex; min-width: 0; flex-direction: column; gap: 12px; padding: 19px; }
 .dashboard-ranking .head { margin: 0; }
 .dashboard-ranking .head p { margin: 0 0 4px; color: #8b95a5; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.ranking-open-icon { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; padding: 0; border: 1px solid #6045c51a; border-radius: 12px; color: #6045c5; background: #6045c514; cursor: pointer; transition: background .2s ease, transform .2s ease; }
+.ranking-open-icon:hover { background: #6045c526; transform: translateY(-2px); }
+.ranking-open-icon:focus-visible { outline: 3px solid #a99af0; outline-offset: 2px; }
 .dashboard-ranking .ranking-podium-preview { flex: 1; min-height: 230px; padding: 14px 10px 0; }
 .dashboard-ranking .ranking-contender { min-height: 125px; padding-bottom: 9px; }
 .dashboard-ranking .ranking-podium-column.place-1 .ranking-podium-step { height: 85px; }
