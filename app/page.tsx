@@ -42,7 +42,7 @@ type Food = {
   displayName?: string;
   ratingKey?: string;
 };
-type FoodRating = { foodKey: string; contributor: string; food: string; date: string; average: number; count: number; myVote: number | null; votes: { voter: string; score: number }[] };
+type FoodRating = { foodKey: string; contributor: string; food: string; date: string; average: number; count: number; captainAverage: number; captainCount: number; myVote: number | null; votes: { voter: string; score: number }[] };
 const legacyFoodRatingKey = (food: Food, index: number) =>
   `legacy:${index}:${food.name}:${food.date}`;
 type Person = [
@@ -140,6 +140,7 @@ export default function Home() {
     [team, setTeam] = useState(people),
     [foods, setFoods] = useState(initial),
     [anonymousVotes, setAnonymousVotes] = useState(false),
+    [memberVotesEnabled, setMemberVotesEnabled] = useState(false),
     [leaderboardEnabled, setLeaderboardEnabled] = useState(true),
     [rankingMode, setRankingMode] = useState<"single" | "general">("single"),
     [foodRatings, setFoodRatings] = useState<FoodRating[]>([]),
@@ -256,6 +257,7 @@ export default function Home() {
         ));
       if (Array.isArray(data.kits)) setKits(data.kits);
       setAnonymousVotes(Boolean(data.anonymousVotes));
+      setMemberVotesEnabled(data.memberVotesEnabled === true);
       setLeaderboardEnabled(data.leaderboardEnabled !== false);
       if (typeof data.teamName === "string" && data.teamName.trim())
         setTeamName(data.teamName.trim());
@@ -275,20 +277,20 @@ export default function Home() {
     if (!hydrated || auth?.role !== "captain") return;
     localStorage.setItem(
       "terzo-tempo-data",
-      JSON.stringify({ teamName, team, foods, kits, anonymousVotes, leaderboardEnabled }),
+      JSON.stringify({ teamName, team, foods, kits, anonymousVotes, leaderboardEnabled, memberVotesEnabled }),
     );
     const timer = setTimeout(() => {
       pasteFetch("/api/state", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          data: { teamName, team, foods, kits, anonymousVotes, leaderboardEnabled },
+          data: { teamName, team, foods, kits, anonymousVotes, leaderboardEnabled, memberVotesEnabled },
           captainName,
         }),
       }).catch(() => undefined);
     }, 450);
     return () => clearTimeout(timer);
-  }, [teamName, team, foods, kits, anonymousVotes, leaderboardEnabled, captainName, hydrated, auth?.role]);
+  }, [teamName, team, foods, kits, anonymousVotes, leaderboardEnabled, memberVotesEnabled, captainName, hydrated, auth?.role]);
   useEffect(() => {
     if (!auth?.authenticated || !hydrated) return;
     let active = true;
@@ -299,6 +301,7 @@ export default function Home() {
       if (active && Array.isArray(data.ratings)) {
         setFoodRatings(data.ratings);
         if (typeof data.leaderboardEnabled === "boolean") setLeaderboardEnabled(data.leaderboardEnabled);
+        if (typeof data.memberVotesEnabled === "boolean") setMemberVotesEnabled(data.memberVotesEnabled);
       }
     };
     refreshRatings().catch(() => undefined);
@@ -496,7 +499,7 @@ export default function Home() {
     );
   const canEdit = auth.role === "captain";
   const submitFoodRating = async (foodKey: string, score: number) => {
-    if (!canEdit) return;
+    if (!auth.authenticated || (auth.role !== "captain" && !memberVotesEnabled)) return;
     setRatingBusy(foodKey);
     try {
       const response = await pasteFetch("/api/ratings", {
@@ -544,15 +547,15 @@ export default function Home() {
     .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "it"));
   const generalStandings = team
     .map((person) => {
-      const entries = foodRatings.filter((entry) => entry.contributor === person[0] && entry.count > 0);
+      const entries = foodRatings.filter((entry) => entry.contributor === person[0] && entry.captainCount > 0);
       return {
         key: person[0],
         name: displayName(person),
         avatar: person[1],
         food: "",
         date: "",
-        points: entries.reduce((sum, entry) => sum + Math.round(entry.average * 10), 0),
-        votes: entries.reduce((sum, entry) => sum + entry.count, 0),
+        points: entries.reduce((sum, entry) => sum + Math.round(entry.captainAverage * 10), 0),
+        votes: entries.reduce((sum, entry) => sum + entry.captainCount, 0),
         contributions: entries.length,
       };
     })
@@ -875,7 +878,7 @@ export default function Home() {
                       edit={() => setEditFoodIndex(foods.indexOf(f))}
                       rating={f.ratingKey ? foodRatings.find((item) => item.foodKey === f.ratingKey) : undefined}
                       allowVote={f.name !== auth.personName}
-                      onVote={canEdit && f.ratingKey ? (score) => submitFoodRating(f.ratingKey!, score) : undefined}
+                      onVote={(canEdit || memberVotesEnabled) && f.ratingKey ? (score) => submitFoodRating(f.ratingKey!, score) : undefined}
                       voteBusy={Boolean(f.ratingKey && ratingBusy === f.ratingKey)}
                     />
                   ))}
@@ -1171,6 +1174,11 @@ export default function Home() {
               <div className="settings-card-title"><span className="settings-icon"><Trophy size={21} /></span><div><p>CLASSIFICA</p><h2>Privacy dei voti</h2></div></div>
               <p className="settings-description">Scegli se mostrare i nomi di chi ha votato e il voto dato per ogni contributo.</p>
               <label className="privacy-switch"><span><strong>{anonymousVotes ? "Voti anonimi" : "Voti pubblici"}</strong><small>{anonymousVotes ? "I voti individuali non mostrano chi li ha dati." : "Tutti possono vedere chi ha votato e il punteggio."}</small></span><input type="checkbox" checked={anonymousVotes} onChange={(event) => setAnonymousVotes(event.target.checked)} /><i aria-hidden="true" /></label>
+            </article>}
+            {canEdit && <article className="panel settings-card rating-settings">
+              <div className="settings-card-title"><span className="settings-icon"><Trophy size={21} /></span><div><p>CLASSIFICA</p><h2>Voti della squadra</h2></div></div>
+              <p className="settings-description">Consenti agli altri membri di votare i contributi. I loro voti influenzano solo la classifica singola; quella generale considera solo il tuo voto.</p>
+              <label className="privacy-switch"><span><strong>{memberVotesEnabled ? "Voti della squadra attivi" : "Solo il capitano può votare"}</strong><small>{memberVotesEnabled ? "Gli altri membri possono votare i contributi degli altri." : "Attiva per consentire i voti di tutti."}</small></span><input type="checkbox" checked={memberVotesEnabled} onChange={(event) => setMemberVotesEnabled(event.target.checked)} /><i aria-hidden="true" /></label>
             </article>}
             {canEdit && <article className="panel settings-card leaderboard-settings">
               <div className="settings-card-title"><span className="settings-icon"><Trophy size={21} /></span><div><p>CLASSIFICA</p><h2>Visibilità classifica</h2></div></div>

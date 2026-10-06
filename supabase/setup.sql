@@ -411,4 +411,90 @@ grant execute on function public.paste_logout(text) to anon, authenticated;
 grant execute on function public.paste_vote(text, integer, text) to anon, authenticated;
 grant execute on function public.paste_get_ratings(text) to anon, authenticated;
 
+-- I voti dei membri sono consentiti solo quando il capitano attiva l'opzione.
+create or replace function public.paste_vote(p_food_key text, p_score integer, p_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_session public.paste_sessions%rowtype;
+  v_state public.paste_state%rowtype;
+  v_food jsonb;
+begin
+  select * into v_session from public.paste_sessions
+   where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') and expires_at > now();
+  if not found then return jsonb_build_object('error', 'Accesso richiesto', 'status', 401); end if;
+  select * into v_state from public.paste_state where id = 1;
+  if v_session.role <> 'captain' and not coalesce((v_state.data->>'memberVotesEnabled')::boolean, false) then
+    return jsonb_build_object('error', 'I voti degli altri membri non sono attivi', 'status', 403);
+  end if;
+  if p_score is null or p_score < 1 or p_score > 10 then
+    return jsonb_build_object('error', 'Il voto deve essere da 1 a 10', 'status', 400);
+  end if;
+  select entry.food into v_food
+  from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb)) with ordinality as entry(food, idx)
+  where coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', '')) = p_food_key
+    and entry.food->>'status' = 'Portato' limit 1;
+  if v_food is null then return jsonb_build_object('error', 'Contributo non disponibile per il voto', 'status', 404); end if;
+  if v_session.person_name = v_food->>'name' then
+    return jsonb_build_object('error', 'Non puoi votare il tuo contributo', 'status', 403);
+  end if;
+  insert into public.paste_food_votes (food_key, voter_name, score)
+    values (p_food_key, v_session.person_name, p_score)
+    on conflict (food_key, voter_name) do update set score = excluded.score, created_at = now();
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+create or replace function public.paste_get_ratings(p_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_session public.paste_sessions%rowtype;
+  v_state public.paste_state%rowtype;
+  v_config public.paste_config%rowtype;
+  v_anonymous boolean;
+  v_ratings jsonb;
+begin
+  select * into v_session from public.paste_sessions
+   where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') and expires_at > now();
+  if not found then return jsonb_build_object('error', 'Accesso richiesto', 'status', 401); end if;
+  select * into v_state from public.paste_state where id = 1;
+  select * into v_config from public.paste_config where id = 1;
+  v_anonymous := coalesce((v_state.data->>'anonymousVotes')::boolean, false);
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'foodKey', coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', '')),
+    'contributor', entry.food->>'name',
+    'food', coalesce(nullif(entry.food->>'note', ''), entry.food->>'why', 'Contributo'),
+    'date', coalesce(entry.food->>'date', ''),
+    'average', coalesce(stats.avg_score, 0), 'count', coalesce(stats.vote_count, 0),
+    'captainAverage', coalesce(stats.captain_avg_score, 0), 'captainCount', coalesce(stats.captain_vote_count, 0),
+    'myVote', mine.score, 'votes', coalesce(stats.votes, '[]'::jsonb)
+  ) order by coalesce(entry.food->>'date', '') desc), '[]'::jsonb)
+  into v_ratings
+  from jsonb_array_elements(coalesce(v_state.data->'foods', '[]'::jsonb)) with ordinality as entry(food, idx)
+  left join lateral (
+    select round(avg(v.score)::numeric, 2) as avg_score, count(*)::integer as vote_count,
+      coalesce(round(avg(v.score) filter (where v.voter_name = v_config.captain_name)::numeric, 2), 0) as captain_avg_score,
+      count(*) filter (where v.voter_name = v_config.captain_name)::integer as captain_vote_count,
+      jsonb_agg(jsonb_build_object('voter', case when v_anonymous then 'Anonimo' else v.voter_name end, 'score', v.score) order by v.created_at) as votes
+    from public.paste_food_votes v
+    where v.food_key = coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', ''))
+  ) stats on true
+  left join public.paste_food_votes mine on mine.food_key = coalesce(entry.food->>'ratingKey', 'legacy:' || (entry.idx - 1)::text || ':' || coalesce(entry.food->>'name', '') || ':' || coalesce(entry.food->>'date', '')) and mine.voter_name = v_session.person_name
+  where entry.food->>'status' = 'Portato';
+  return jsonb_build_object(
+    'ratings', v_ratings,
+    'anonymous', v_anonymous,
+    'leaderboardEnabled', coalesce((v_state.data->>'leaderboardEnabled')::boolean, true),
+    'memberVotesEnabled', coalesce((v_state.data->>'memberVotesEnabled')::boolean, false)
+  );
+end;
+$$;
+
 notify pgrst, 'reload schema';
