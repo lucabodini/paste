@@ -738,6 +738,7 @@ export default function Home() {
                     ))}
                   </div>
                 ) : <p className="ranking-empty">Il podio apparirà dopo i primi voti.</p>}
+                <button className="ranking-vote-button" type="button" onClick={() => setTab("paste")}>Vota</button>
               </article>}
               <article className="wash">
                 <div className="shirt">
@@ -907,6 +908,7 @@ export default function Home() {
                   <div className="ranking-podium-step"><span>{place}</span></div>
                 </div>
               ))}</div>}
+              <button className="ranking-vote-button" type="button" onClick={() => setTab("paste")}>Vota</button>
               <article className="panel ranking-list">
                 <h2>{rankingMode === "single" ? "Ogni contributo" : "Punti totali per persona"}</h2>
                 {standings.map((entry, index) => <div className="ranking-row" key={entry.key}><b>#{index + 1}</b><Avatar x={entry.avatar} /><div className="ranking-row-name"><strong>{entry.name}</strong><small>{rankingMode === "single" ? `${entry.food} · ${entry.date} · ${entry.votes} voti` : `${entry.contributions} contributi · ${entry.votes} voti ricevuti`}</small></div><span>{rankingMode === "single" ? `${entry.points.toFixed(1)} / 10` : `${entry.points} pt`}</span></div>)}
@@ -1748,11 +1750,6 @@ function FoodRow({
       <div>
         <div className="food-name-row">
           <strong>{f.displayName || f.name}</strong>
-          {!due && onVote && allowVote && (
-          <button className="food-vote-link" type="button" onClick={() => setRatingOpen((open) => !open)}>
-              {rating?.myVote ? `Voto ${rating.myVote}/10 · Modifica` : "Vota"}
-            </button>
-          )}
         </div>
         {!due && ratingOpen && onVote && allowVote && createPortal(
           <div className="back food-vote-back" onClick={() => setRatingOpen(false)}>
@@ -1792,6 +1789,13 @@ function FoodRow({
           {f.why} · {f.date}
         </span>
         {f.note && <em>{f.note}</em>}
+        {!due && <div className="food-bottom-actions">
+          <b className="ok">Ha portato</b>
+          {onVote && allowVote && <button className="food-vote-link" type="button" onClick={() => setRatingOpen((open) => !open)}>
+            {rating?.myVote ? `Voto ${rating.myVote}/10 · Modifica` : "Vota"}
+          </button>}
+          {canEdit && edit && <button className="edit-person" aria-label={`Modifica voce di ${f.displayName || f.name}`} onClick={edit}><Pencil size={16} /></button>}
+        </div>}
       </div>
       {due && canEdit ? (
         <button className="done" onClick={open}>
@@ -1800,10 +1804,8 @@ function FoodRow({
         </button>
       ) : due ? (
         <b className="pending">Da portare</b>
-      ) : (
-        <b className="ok">Ha portato</b>
-      )}
-      {canEdit && edit && (
+      ) : null}
+      {due && canEdit && edit && (
         <button
           className="edit-person"
           aria-label={`Modifica voce di ${f.displayName || f.name}`}

@@ -536,6 +536,9 @@ h3 {
 .dashboard-ranking .ranking-podium-column.place-1 .ranking-podium-step { height: 85px; }
 .dashboard-ranking .ranking-podium-column.place-2 .ranking-podium-step { height: 64px; }
 .dashboard-ranking .ranking-podium-column.place-3 .ranking-podium-step { height: 48px; }
+.ranking-vote-button { min-height: 46px; width: 100%; border: 0; border-radius: 11px; color: #fff; background: linear-gradient(135deg, #7658ed, #5435ca); box-shadow: 0 5px 14px #6045c52e; font: inherit; font-size: 15px; font-weight: 900; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
+.ranking-vote-button:hover { transform: translateY(-2px); box-shadow: 0 8px 18px #6045c540; }
+.ranking-vote-button:focus-visible, .food-vote-link:focus-visible { outline: 3px solid #a99af0; outline-offset: 2px; }
 .ranking-list, .rate-foods { padding: 22px; }
 .ranking-list h2, .rate-foods h2 { margin: 0 0 14px; font-size: 17px; }
 .ranking-row { min-height: 61px; display: grid; grid-template-columns: 42px 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; border-top: 1px solid #edf0f4; }
@@ -864,7 +867,10 @@ h3 {
 }
 .food-name-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .food-name-row strong { min-width: 0; }
-.food-vote-link { padding: 3px 8px; border: 1px solid #dcd5fa; border-radius: 7px; color: #6045c5; background: #f6f3ff; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
+.food-bottom-actions { display: flex; align-items: center; gap: 9px; margin-top: 7px; }
+.food-bottom-actions .ok { margin-right: auto; }
+.food-bottom-actions .edit-person { flex: 0 0 36px; }
+.food-vote-link { min-height: 38px; padding: 0 16px; border: 1px solid #6045c5; border-radius: 9px; color: #fff; background: linear-gradient(135deg, #7658ed, #5435ca); box-shadow: 0 3px 9px #6045c526; font: inherit; font-size: 13px; font-weight: 900; cursor: pointer; }
 .food-vote-back { z-index: 50; background: #17203355; backdrop-filter: blur(14px) saturate(150%); }
 .back form.food-vote-dialog { border: 1px solid #ffffffc7; background: #fffffff0; box-shadow: 0 24px 80px #080d1f45; backdrop-filter: blur(24px) saturate(180%); }
 .food-vote-dialog > p { margin: 0; color: #8b95a5; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
