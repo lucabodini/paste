@@ -1909,7 +1909,7 @@ h3 {
     align-items: flex-start;
     flex-direction: column;
     gap: 15px;
-    padding: 0 40px 0 4px;
+    padding: 0 4px;
     margin-bottom: 18px;
   }
   .calendar-controls {
@@ -1924,18 +1924,18 @@ h3 {
   }
   .calendar-controls select {
     box-sizing: border-box;
+    appearance: none;
     min-width: 0;
     height: 42px;
     flex: 1 1 auto;
-    padding: 0 23px 0 8px;
-    font-size: 13px;
+    padding: 0 8px;
+    font-size: 12px;
+    text-align: center;
   }
   .calendar-controls select:last-of-type {
-    flex: 0 0 66px;
-    width: 66px;
-    min-width: 66px;
-    padding-right: 20px;
-    padding-left: 7px;
+    flex: 0 0 76px;
+    width: 76px;
+    min-width: 76px;
   }
   .calendar-controls select:first-of-type {
     flex: 1 1 0;
